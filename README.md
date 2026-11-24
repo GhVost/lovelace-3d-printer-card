@@ -166,6 +166,7 @@ power_switch: switch.printer_smart_plug
 | `power_switch` | string | No | Switch entity ID for the printer's smart plug — adds a power button to the header |
 | `view` | string | No | Starting live view: `printer` (default), `both` (drawing above the camera) or `camera`. The toggle under the view switches it, and the choice is remembered per browser |
 | `terminal` | boolean | No | `false` hides the Terminal section. Shown by default when `moonraker.send_gcode` is available |
+| `terminal_url` | string | No | Show the printer UI's own terminal inside the Terminal section, e.g. `https://octoprint.example/#term` or `https://mainsail.example/console`. Needs an https:// address on an https:// dashboard, and the page must allow framing (OctoPrint: `server: allowFraming: true` in its config.yaml) |
 | `variant` | string | No | `full` (default) or `compact`: a glance card whose "Full controls" opens the full card in a dialog |
 | `presets` | map | No | Target presets per heater, keyed by `hotend`, `bed`, a heater's sensor or target entity ID, or its label. Each item is `{ name, value }` or a number. Defaults: hotend PLA 215 / PETG 245 / ABS 260, bed PLA 60 / PETG 80 / ABS 100 |
 
@@ -335,6 +336,7 @@ Optional mapping keys (all used by the built-in OctoPrint mapping):
 - New: optional mapping keys `ignore`, `hide_unavailable`, `status_map` and `label_strip`.
 - New: `printer_type: delta` side-view drawing; while printing the effector sweeps and the carriages follow it with constant-length rods.
 - New: live view toggle Printer / Both / Camera (`view` option), with a camera picker when there are several cameras.
+- New: `terminal_url` embeds the OctoPrint or Mainsail terminal in the Terminal section.
 - New: Terminal section for Moonraker/Klipper that sends G-code via `moonraker.send_gcode` to this printer's device (HA returns no console output, so the log shows the sent commands).
 
 **3.0.1**

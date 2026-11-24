@@ -127,6 +127,8 @@ const DEFAULT_UI = {
   both: 'Both',
   terminal: 'Terminal',
   send: 'Send',
+  open_new_tab: 'Open in new tab',
+  term_https: 'This terminal page uses http://, which an https:// dashboard cannot embed. Give terminal_url an https:// address, or open it in a new tab.',
   term_hint: 'Type G-code and press Enter. Tap a sent command to reuse it.',
   elapsed: 'Elapsed',
   file: 'File',
@@ -903,7 +905,10 @@ class PrinterCard3D extends HTMLElement {
     // <details> toggles don't bubble; capture them to remember which sections are open.
     r.addEventListener('toggle', (e) => {
       const d = e.target;
-      if (d instanceof HTMLDetailsElement && d.dataset.sec) this._open[d.dataset.sec] = d.open;
+      if (d instanceof HTMLDetailsElement && d.dataset.sec) {
+        this._open[d.dataset.sec] = d.open;
+        if (d.dataset.sec === 'term' && this._config?.terminal_url) this._render();
+      }
     }, true);
     this._built = true;
     PrinterCard3D._loadFont();
@@ -1228,6 +1233,7 @@ class PrinterCard3D extends HTMLElement {
   // what was sent and whether HA accepted it.
   _termBackend() {
     if (this._config.terminal === false) return null;
+    if (this._config.terminal_url) return 'embed';
     const sv = this._hass.services || {};
     if (this._entityMappings !== OCTOPRINT_MAPPINGS && sv.moonraker?.send_gcode) return 'moonraker';
     return null;
@@ -1240,7 +1246,9 @@ class PrinterCard3D extends HTMLElement {
   }
 
   _termHtml() {
-    if (!this._termBackend()) return '';
+    const backend = this._termBackend();
+    if (!backend) return '';
+    if (backend === 'embed') return this._termEmbedHtml();
     const log = this._term.length
       ? this._term.map((l) => `<div class="tl ${l.err ? 'err' : ''}"><span class="tt">${esc(l.time)}</span><button class="tc" data-action="term-cmd" data-cmd="${esc(l.cmd)}">${esc(l.cmd)}</button>${l.err ? `<span class="te">${esc(l.err)}</span>` : ''}</div>`).join('')
       : `<div class="tl muted">${esc(this._t('term_hint'))}</div>`;
@@ -1248,6 +1256,21 @@ class PrinterCard3D extends HTMLElement {
       <div class="tin"><span class="tp">&gt;</span><input id="tin" type="text" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="G28, M117 Hello …"><button class="chip" data-action="term-send">${esc(this._t('send'))}</button></div></div>`;
     const last = this._term[this._term.length - 1];
     return this._details('term', 'console', this._t('terminal'), last ? last.cmd : 'G-code', body);
+  }
+
+  // terminal_url: the printer UI's own terminal (OctoPrint .../#term, Mainsail
+  // .../console) shown inside the card's Terminal section. An http:// page
+  // can't be embedded in an https:// dashboard, so that case shows a hint.
+  _termEmbedHtml() {
+    const url = String(this._config.terminal_url);
+    const blocked = /^http:/i.test(url) && location.protocol === 'https:';
+    const open = `<a class="chip" href="${esc(url)}" target="_blank" rel="noopener noreferrer">${esc(this._t('open_new_tab'))}</a>`;
+    const body = blocked
+      ? `<div class="term"><div class="tl muted">${esc(this._t('term_https'))}</div><div class="tbar">${open}</div></div>`
+      : `<div class="term"><div class="tframe">${this._open.term ? `<iframe src="${esc(url)}" title="${esc(this._t('terminal'))}" referrerpolicy="no-referrer"></iframe>` : ''}</div><div class="tbar">${open}</div></div>`;
+    let host = url;
+    try { host = new URL(url, location.href).host; } catch (e) { /* keep raw */ }
+    return this._details('term', 'console', this._t('terminal'), host, body);
   }
 
   _termSend() {
@@ -1644,6 +1667,10 @@ button:disabled { cursor: default; opacity: .38; }
 .view.both .draw { height: 230px; }
 .view.both .camwrap { position: relative; inset: auto; width: 100%; aspect-ratio: 16 / 9; border-top: 1px solid var(--line); }
 .term { display: flex; flex-direction: column; gap: 8px; }
+.tframe { height: 380px; background: #0b0e13; border: 1px solid var(--line); border-radius: 12px; overflow: hidden; }
+.tframe iframe { width: 100%; height: 100%; border: 0; display: block; background: #0b0e13; }
+.tbar { display: flex; justify-content: flex-end; }
+.tbar .chip { text-decoration: none; }
 .tlog { max-height: 180px; overflow-y: auto; background: #0b0e13; border: 1px solid var(--line); border-radius: 12px; padding: 8px 10px; font: 12px/1.6 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
 .tl { display: flex; gap: 8px; align-items: baseline; }
 .tl.muted { color: var(--text3); font-family: inherit; }
