@@ -360,68 +360,39 @@ function layersSvg(cx, bedTop, objW, objMax, p, color, outline) {
   return obj;
 }
 
-// Delta (rostock/kossel): three towers, a round bed, carriages on the towers
-// joined to the effector by parallel arm pairs. While printing the effector
-// circles over the bed and each carriage follows from the arm geometry
-// (height above the effector = √(L² − d²), d = plan distance to the tower),
-// so the arms keep a constant length.
+// Delta (Kossel/Rostock), side view in the same style as the other types:
+// two front towers, the back tower faint in the middle, fixed bed. While
+// printing the effector sweeps like the other toolheads and each carriage
+// height follows the arm geometry (√(L² − d²)), so the arms keep their length.
 function deltaSvg(s, c) {
   const { p, HOT, BED, FR, OBJ } = c;
-  const cx = 125, bedTop = 188, objMax = 78, objW = 44;
+  const cx = 125, bedTop = 182, objMax = 86, objW = 50;
   const objH = objMax * p;
   const nozzleY = bedTop - objH - 2;
-  const DEPTH = 0.16;           // plan depth → screen y (shallow perspective)
-  const L = 150, VS = 0.5;      // arm length (plan units), vertical screen scale
-  const TOP = 24;               // highest a carriage may go on screen
-  // Towers in plan (x right, y towards the back): front-left, front-right, back.
-  const towers = [[-91, -52], [91, -52], [0, 105]];
-  const sx = (x) => cx + x;
-  const sy = (z, y) => z - y * DEPTH;
-  const ATT = 11;               // effector arm attachment radius
+  const effY = nozzleY - 12;     // effector plate, arms attach here
+  const L = 120, VS = 0.45, TOP = 26, ATT = 12, BACK = 105;
+  // [screen x, plan depth offset, attachment side, faint]
+  const towers = [[125, BACK, 0, true], [41, 0, -1, false], [209, 0, 1, false]];
 
-  const frame = (ex, ey) => {
-    const eY = sy(nozzleY - 12, ey);
-    return towers.map(([tx, ty]) => {
-      const dx = tx - ex, dy = ty - ey;
-      const d = Math.hypot(dx, dy);
-      const h = Math.sqrt(Math.max(L * L - d * d, 0)) * VS;
-      const carY = Math.max(TOP, eY - h);
-      const ux = dx / d, uy = dy / d;
-      const ax = sx(ex + ux * ATT), ay = sy(nozzleY - 12, ey + uy * ATT);
-      return { carX: sx(tx), carY, ax, ay, eX: sx(ex), eY };
-    });
-  };
+  const frame = (ex) => towers.map(([tx, depth, side]) => {
+    const ax = cx + ex + side * ATT;
+    const d = Math.hypot(tx - ax, depth);
+    const h = Math.sqrt(Math.max(L * L - d * d, 0)) * VS;
+    return { carY: Math.max(TOP, effY - h - 6), ax };
+  });
 
-  const N = 24, R = 24, DUR = '3.2s';
-  const frames = s.printing
-    ? Array.from({ length: N + 1 }, (_, i) => frame(R * Math.cos((2 * Math.PI * i) / N), R * Math.sin((2 * Math.PI * i) / N)))
-    : [frame(0, 0)];
+  const N = 24, DUR = '2.6s';
+  const xs = s.printing ? Array.from({ length: N + 1 }, (_, i) => 30 * Math.sin((2 * Math.PI * i) / N)) : [0];
+  const frames = xs.map(frame);
   const f0 = frames[0];
   const vals = (fn) => frames.map(fn).map((v) => v.toFixed(1)).join(';');
   const anim = (attr, fn) => (s.printing ? `<animate attributeName="${attr}" values="${vals(fn)}" dur="${DUR}" repeatCount="indefinite"/>` : '');
 
-  // Back tower first so the front towers and arms draw over it.
-  const order = [2, 0, 1];
-  const towerSvg = order.map((i) => {
-    const x = f0[i].carX, back = i === 2;
-    const top = sy(16, towers[i][1]), bot = sy(206, towers[i][1]);
-    return `<rect x="${x - 4}" y="${top.toFixed(1)}" width="8" height="${(bot - top).toFixed(1)}" rx="2.5" fill="#141821" stroke="${FR}" stroke-width="1.5" ${back ? 'opacity=".6"' : ''}/>`;
-  }).join('');
-  const plates = (y) => {
-    const pts = towers.map(([tx, ty]) => `${sx(tx)},${sy(y, ty).toFixed(1)}`).join(' ');
-    return `<polygon points="${pts}" fill="none" stroke="${FR}" stroke-width="2.5" stroke-linejoin="round"/>`;
-  };
-
-  const armsSvg = order.map((i) => {
-    const off = [-3, 3];
-    return off.map((o) => `<line x1="${(f0[i].carX + o).toFixed(1)}" y1="${(f0[i].carY + 6).toFixed(1)}" x2="${(f0[i].ax + o / 2).toFixed(1)}" y2="${f0[i].ay.toFixed(1)}" stroke="rgba(255,255,255,.42)" stroke-width="1.6" stroke-linecap="round" ${i === 2 ? 'opacity=".55"' : ''}>
-        ${anim('y1', (f) => f[i].carY + 6)}${anim('x2', (f) => f[i].ax + o / 2)}${anim('y2', (f) => f[i].ay)}</line>`).join('');
-  }).join('');
-
-  const carriages = order.map((i) => `<rect x="${f0[i].carX - 9}" y="${f0[i].carY.toFixed(1)}" width="18" height="12" rx="3" fill="#252b36" stroke="${FR}" ${i === 2 ? 'opacity=".7"' : ''}>${anim('y', (f) => f[i].carY)}</rect>`).join('');
-
+  const towerSvg = towers.map(([tx, , , faint]) => `<rect x="${tx - 5}" y="18" width="10" height="182" rx="3" fill="#141821" stroke="${FR}" stroke-width="1.5" ${faint ? 'opacity=".3"' : ''}/>`).join('');
+  const carriage = (i) => [towers[i]].map(([tx, , , faint], i) => `<rect x="${tx - 8}" y="${f0[i].carY.toFixed(1)}" width="16" height="13" rx="3" fill="#252b36" stroke="${FR}" ${faint ? 'opacity=".5"' : ''}>${anim('y', (f) => f[i].carY)}</rect>`)[0];
+  const arm = (i) => [towers[i]].map(([tx, , , faint]) => [-2.5, 2.5].map((o) => `<line x1="${tx + o}" y1="${(f0[i].carY + 10).toFixed(1)}" x2="${(f0[i].ax + o).toFixed(1)}" y2="${effY}" stroke="rgba(255,255,255,.4)" stroke-width="1.6" stroke-linecap="round" ${faint ? 'opacity=".4"' : ''}>${anim('y1', (f) => f[i].carY + 10)}${anim('x2', (f) => f[i].ax + o)}</line>`).join(''))[0];
   const effMove = s.printing
-    ? `<animateTransform attributeName="transform" type="translate" values="${frames.map((f) => `${(f[0].eX - cx).toFixed(1)} ${(f[0].eY - sy(nozzleY - 12, 0)).toFixed(1)}`).join(';')}" dur="${DUR}" repeatCount="indefinite"/>`
+    ? `<animateTransform attributeName="transform" type="translate" values="${xs.map((x) => `${x.toFixed(1)} 0`).join(';')}" dur="${DUR}" repeatCount="indefinite"/>`
     : '';
 
   return `<svg viewBox="0 0 250 230" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Delta printer">
@@ -429,21 +400,21 @@ function deltaSvg(s, c) {
     <radialGradient id="p3g1"><stop offset="0" stop-color="${HOT}" stop-opacity=".55"/><stop offset="1" stop-color="${HOT}" stop-opacity="0"/></radialGradient>
     <radialGradient id="p3g2"><stop offset="0" stop-color="${BED}" stop-opacity=".38"/><stop offset="1" stop-color="${BED}" stop-opacity="0"/></radialGradient>
   </defs>
-  <ellipse cx="${cx}" cy="${bedTop + 22}" rx="104" ry="13" fill="rgba(255,255,255,.06)"/>
+  <rect x="26" y="198" width="198" height="10" rx="4" fill="rgba(255,255,255,.08)"/>
   ${towerSvg}
-  ${plates(18)}
-  ${plates(206)}
-  ${s.bed ? `<ellipse cx="${cx}" cy="${bedTop + 3}" rx="88" ry="17" fill="url(#p3g2)"><animate attributeName="opacity" values=".7;1;.7" dur="2.6s" repeatCount="indefinite"/></ellipse>` : ''}
-  <ellipse cx="${cx}" cy="${bedTop + 3}" rx="76" ry="12" fill="${BED}" opacity="${s.bed ? 0.9 : 0.55}"/>
-  <ellipse cx="${cx}" cy="${bedTop + 1}" rx="76" ry="12" fill="#1a1f29" opacity=".55"/>
-  ${layersSvg(cx, bedTop + 2, objW, objMax, p, OBJ, true)}
-  ${carriages}
-  ${armsSvg}
-  <g transform="translate(${cx} ${nozzleY})"><g transform="translate(${(f0[0].eX - cx).toFixed(1)} ${(f0[0].eY - sy(nozzleY - 12, 0)).toFixed(1)})">${effMove}
-    ${s.hot ? `<ellipse cx="0" cy="3" rx="18" ry="10" fill="url(#p3g1)"/>` : ''}
-    <ellipse cx="0" cy="-12" rx="14" ry="4.5" fill="#252b36" stroke="${HOT}" stroke-width="1.5"/>
-    <rect x="-5" y="-10" width="10" height="7" rx="2" fill="#252b36" stroke="${HOT}" stroke-width="1"/>
-    <path d="M-3.5 -3h7l-3.5 5z" fill="${HOT}"/>
+  ${carriage(0)}${arm(0)}
+  <line x1="41" y1="20" x2="209" y2="20" stroke="${FR}" stroke-width="3" stroke-linecap="round"/>
+  <line x1="41" y1="196" x2="209" y2="196" stroke="${FR}" stroke-width="3" stroke-linecap="round"/>
+  ${s.bed ? `<ellipse cx="${cx}" cy="${bedTop + 3}" rx="96" ry="15" fill="url(#p3g2)"><animate attributeName="opacity" values=".7;1;.7" dur="2.6s" repeatCount="indefinite"/></ellipse>` : ''}
+  ${layersSvg(cx, bedTop, objW, objMax, p, OBJ, true)}
+  <rect x="50" y="${bedTop}" width="150" height="7" rx="3" fill="${BED}" opacity="${s.bed ? 0.9 : 0.55}"/>
+  ${carriage(1)}${carriage(2)}
+  ${arm(1)}${arm(2)}
+  <g transform="translate(${cx} ${nozzleY})"><g transform="translate(0 0)">${effMove}
+    ${s.hot ? `<ellipse cx="0" cy="4" rx="20" ry="12" fill="url(#p3g1)"/>` : ''}
+    <rect x="-16" y="-14" width="32" height="5" rx="2" fill="#252b36" stroke="${HOT}" stroke-width="1.5"/>
+    <rect x="-6" y="-9" width="12" height="7" rx="2" fill="#252b36" stroke="${HOT}" stroke-width="1"/>
+    <path d="M-4 -2h8l-4 6z" fill="${HOT}"/>
   </g></g>
 </svg>`;
 }

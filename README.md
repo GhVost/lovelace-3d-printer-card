@@ -265,7 +265,7 @@ With the plug off (or Moonraker unreachable) the card shows only the header, an 
 | `corexy` | CoreXY — gantry fixed at top, bed moves down with object |
 | `corexy-flying-gantry` | CoreXY Voron 2.4 — flying gantry moves up with object, fixed bed |
 | `cantilever` | Cantilever (Ender-style) — single upright, cantilevered X arm |
-| `delta` | Delta (Kossel/Rostock) — three towers, round bed, carriages and arm pairs follow the effector |
+| `delta` | Delta (Kossel/Rostock) — side view: three towers (back one faint), carriages and arm pairs follow the effector |
 
 ---
 
