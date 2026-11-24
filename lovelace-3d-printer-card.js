@@ -389,7 +389,7 @@ function deltaSvg(s, c) {
   const anim = (attr, fn) => (s.printing ? `<animate attributeName="${attr}" values="${vals(fn)}" dur="${DUR}" repeatCount="indefinite"/>` : '');
 
   const towerSvg = towers.map(([tx, , , faint]) => `<rect x="${tx - 5}" y="18" width="10" height="182" rx="3" fill="#141821" stroke="${FR}" stroke-width="1.5" ${faint ? 'opacity=".3"' : ''}/>`).join('');
-  const carriage = (i) => [towers[i]].map(([tx, , , faint], i) => `<rect x="${tx - 8}" y="${f0[i].carY.toFixed(1)}" width="16" height="13" rx="3" fill="#252b36" stroke="${FR}" ${faint ? 'opacity=".5"' : ''}>${anim('y', (f) => f[i].carY)}</rect>`)[0];
+  const carriage = (i) => [towers[i]].map(([tx, , , faint]) => `<rect x="${tx - 8}" y="${f0[i].carY.toFixed(1)}" width="16" height="13" rx="3" fill="#252b36" stroke="${FR}" ${faint ? 'opacity=".5"' : ''}>${anim('y', (f) => f[i].carY)}</rect>`)[0];
   const arm = (i) => [towers[i]].map(([tx, , , faint]) => [-2.5, 2.5].map((o) => `<line x1="${tx + o}" y1="${(f0[i].carY + 10).toFixed(1)}" x2="${(f0[i].ax + o).toFixed(1)}" y2="${effY}" stroke="rgba(255,255,255,.4)" stroke-width="1.6" stroke-linecap="round" ${faint ? 'opacity=".4"' : ''}>${anim('y1', (f) => f[i].carY + 10)}${anim('x2', (f) => f[i].ax + o)}</line>`).join(''))[0];
   const effMove = s.printing
     ? `<animateTransform attributeName="transform" type="translate" values="${xs.map((x) => `${x.toFixed(1)} 0`).join(';')}" dur="${DUR}" repeatCount="indefinite"/>`
