@@ -160,7 +160,7 @@ power_switch: switch.printer_smart_plug
 |---|---|---|---|
 | `base_entity` | string | **Yes** | Entity name prefix, e.g. `voron_24` |
 | `name` | string | No | Display name shown in the card header |
-| `printer_type` | string | No | `i3` (default), `corexy`, `corexy-flying-gantry`, or `cantilever` |
+| `printer_type` | string | No | `i3` (default), `corexy`, `corexy-flying-gantry`, `cantilever`, or `delta` |
 | `entity_mappings` | string | No | Entity mapping + UI locale. **Check the `entities/` folder** for available options (e.g. `en_generic`, `de_generic`, `de_bambu_generic`), or the built-in `octoprint`. Default: `octoprint` when OctoPrint entities are detected, else `{hass.locale}_generic` or `en_generic` |
 | `cameras` | list | No | Array of `{ entity, rotate }` for rotation overrides only |
 | `power_switch` | string | No | Switch entity ID for the printer's smart plug — adds a power button to the header |
@@ -265,6 +265,7 @@ With the plug off (or Moonraker unreachable) the card shows only the header, an 
 | `corexy` | CoreXY — gantry fixed at top, bed moves down with object |
 | `corexy-flying-gantry` | CoreXY Voron 2.4 — flying gantry moves up with object, fixed bed |
 | `cantilever` | Cantilever (Ender-style) — single upright, cantilevered X arm |
+| `delta` | Delta (Kossel/Rostock) — three towers, round bed, carriages and arm pairs follow the effector |
 
 ---
 
@@ -330,6 +331,7 @@ Optional mapping keys (all used by the built-in OctoPrint mapping):
 **Unreleased**
 - New: OctoPrint support via a built-in mapping, auto-detected from the OctoPrint integration's entities (English and German HA).
 - New: optional mapping keys `ignore`, `hide_unavailable`, `status_map` and `label_strip`.
+- New: `printer_type: delta` drawing; while printing the effector circles and the carriages follow the arm geometry.
 
 **3.0.1**
 - Fixed: the compact card's dialog no longer closes by itself when the dashboard redraws (for example right after you change a setting).
