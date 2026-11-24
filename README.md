@@ -114,6 +114,15 @@ entity_mappings: de_bambu_generic
 
 **Check the `entities/` folder** in the repo to see which mapping files are available (e.g. `en_generic.js`, `de_generic.js`, `de_bambu_generic.js`). Use the filename without `.js` as the value.
 
+**OctoPrint** (Home Assistant's built-in OctoPrint integration) — the mapping is built into the card and picked automatically when `sensor.<base_entity>_current_state` and `sensor.<base_entity>_actual_tool0_temp` exist, so `entity_mappings` can be left out (or set it to `octoprint`). It works with English and German HA. Hotend/bed targets are settable via the integration's number entities; pause/resume/cancel and the OctoPrint restart/reboot/shutdown buttons are mapped. The integration exposes no toolhead position, fans, speed factor, G-code service or emergency stop, so Move, Tune and the emergency-stop button don't appear.
+
+```yaml
+type: custom:lovelace-3d-printer-card
+name: Prusa
+base_entity: octoprint
+printer_type: i3
+```
+
 **Compact glance card** (e.g. inside a room view), opening the full card in a dialog:
 
 ```yaml
@@ -152,7 +161,7 @@ power_switch: switch.printer_smart_plug
 | `base_entity` | string | **Yes** | Entity name prefix, e.g. `voron_24` |
 | `name` | string | No | Display name shown in the card header |
 | `printer_type` | string | No | `i3` (default), `corexy`, `corexy-flying-gantry`, or `cantilever` |
-| `entity_mappings` | string | No | Entity mapping + UI locale. **Check the `entities/` folder** for available options (e.g. `en_generic`, `de_generic`, `de_bambu_generic`). Default: `{hass.locale}_generic` or `en_generic` |
+| `entity_mappings` | string | No | Entity mapping + UI locale. **Check the `entities/` folder** for available options (e.g. `en_generic`, `de_generic`, `de_bambu_generic`), or the built-in `octoprint`. Default: `octoprint` when OctoPrint entities are detected, else `{hass.locale}_generic` or `en_generic` |
 | `cameras` | list | No | Array of `{ entity, rotate }` for rotation overrides only |
 | `power_switch` | string | No | Switch entity ID for the printer's smart plug — adds a power button to the header |
 | `variant` | string | No | `full` (default) or `compact`: a glance card whose "Full controls" opens the full card in a dialog |
@@ -307,9 +316,20 @@ The card relies on entity mapping files to discover printer entities and transla
 
 4. Submit a PR with the new file and a short note in the PR description.
 
+Optional mapping keys (all used by the built-in OctoPrint mapping):
+
+- `ignore` — regexes tested against the entity suffix; matching entities are skipped (e.g. `['^target_']`).
+- `hide_unavailable` — `true` drops extra temperature sensors that are unavailable or unknown.
+- `status_map` — maps the lower-cased status text to the card's states (`printing`, `paused`, `ready`, `standby`, `error`, `offline`, …).
+- `label_strip` — regexes removed from friendly names before they're used as labels.
+
 ---
 
 ## Changelog
+
+**Unreleased**
+- New: OctoPrint support via a built-in mapping, auto-detected from the OctoPrint integration's entities (English and German HA).
+- New: optional mapping keys `ignore`, `hide_unavailable`, `status_map` and `label_strip`.
 
 **3.0.1**
 - Fixed: the compact card's dialog no longer closes by itself when the dashboard redraws (for example right after you change a setting).
@@ -331,5 +351,5 @@ The card relies on entity mapping files to discover printer entities and transla
 ## Requirements
 
 - Home Assistant 2023.4 or newer (a browser with CSS container queries)
-- Moonraker integration installed and printer entities exposed to HA
+- Moonraker integration installed and printer entities exposed to HA (or the OctoPrint integration, see above)
 - No additional HACS frontend cards required

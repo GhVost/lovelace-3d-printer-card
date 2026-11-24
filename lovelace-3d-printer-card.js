@@ -62,6 +62,65 @@ const DEFAULT_MAPPINGS = {
   camera: [['thumbnail', ['thumbnail']]],
 };
 
+// ── Built-in mapping for Home Assistant's OctoPrint integration ─────────────
+// Shipped inside the card so single-file (HACS) installs work too. Used when
+// entity_mappings is 'octoprint', or auto-detected from <base>_current_state
+// plus <base>_actual_tool0_temp. Number entity IDs follow the HA language
+// (English: bed_temperature / extruder_temperature, German: bett_temperatur /
+// extruder_temperatur), so both are listed.
+const OCTOPRINT_MAPPINGS = {
+  sensor: [
+    ['status', ['current_state']],
+    ['progress', ['job_percentage']],
+    ['eta', ['estimated_finish_time']],
+    ['filename', ['current_file']],
+    ['hotend', ['actual_tool0_temp']],
+    ['bed', ['actual_bed_temp']],
+  ],
+  number: [
+    ['hotend_target', ['extruder_temperature', 'extruder_temperatur']],
+    ['bed_target', ['bed_temperature', 'bett_temperatur']],
+  ],
+  button: [
+    ['cancel', ['stop_job']],
+    ['pause', ['pause_job']],
+    ['resume', ['resume_job']],
+    ['server_restart', ['restart_octoprint']],
+    ['host_restart', ['reboot_system']],
+    ['host_shutdown', ['shutdown_system']],
+  ],
+  camera: [],
+  // Regexes on the entity suffix: read-only targets duplicate the settable
+  // number entities; the file size is not a temperature.
+  ignore: ['^target_', '_file_size$'],
+  // Extra temperature sensors the printer doesn't report show as unavailable.
+  hide_unavailable: true,
+  // OctoPrint state text (lower-cased) → the card's states.
+  status_map: {
+    operational: 'ready',
+    'printing from sd': 'printing',
+    'sending file to sd': 'printing',
+    starting: 'printing',
+    finishing: 'printing',
+    cancelling: 'printing',
+    pausing: 'paused',
+    resuming: 'printing',
+    'offline after error': 'error',
+    'opening serial connection': 'startup',
+    connecting: 'startup',
+    'detecting serial connection': 'startup',
+    'detecting baudrate': 'startup',
+    closed: 'offline',
+    'closed with error': 'error',
+  },
+  // Friendly names look like "<device> OctoPrint actual A temp".
+  label_strip: ['^.*?octoprint\\s+', '^actual\\s+'],
+  ui: {
+    server_restart: 'Restart OctoPrint',
+    st_ready: 'Ready',
+  },
+};
+
 // UI strings. A mapping file's `ui` block overrides these; missing keys fall back here.
 const DEFAULT_UI = {
   eta: 'ETA',
@@ -456,11 +515,15 @@ class PrinterCard3D extends HTMLElement {
   }
 
   _resolveEntityMappingsKey() {
-    return this._config?.entity_mappings ||
-      (this._hass?.locale?.language || this._hass?.language || 'en') + '_generic';
+    if (this._config?.entity_mappings) return this._config.entity_mappings;
+    const b = this._config?.base_entity;
+    const st = this._hass?.states || {};
+    if (b && st[`sensor.${b}_current_state`] && st[`sensor.${b}_actual_tool0_temp`]) return 'octoprint';
+    return (this._hass?.locale?.language || this._hass?.language || 'en') + '_generic';
   }
 
   _loadEntityMappings(key) {
+    if (key === 'octoprint') return Promise.resolve(OCTOPRINT_MAPPINGS);
     const url = new URL(`./entities/${key}.js`, import.meta.url).href;
     return import(/* webpackIgnore: true */ url)
       .then((m) => m.default)
@@ -491,13 +554,22 @@ class PrinterCard3D extends HTMLElement {
     const reEsc = (x) => x.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
     const names = [this._config.name, b.replace(/_/g, ' '), b].filter(Boolean).map(reEsc);
     const devicePrefix = new RegExp(`^(${names.join('|')})\\s+`, 'i');
+    const m = this._entityMappings || DEFAULT_MAPPINGS;
+    // Optional mapping keys: label_strip (regexes removed from friendly names),
+    // ignore (regexes on the entity suffix), hide_unavailable (drop extra
+    // temperature sensors that are unavailable/unknown).
+    const labelStrip = (m.label_strip || []).map((r) => new RegExp(r, 'i'));
+    const ignore = (m.ignore || []).map((r) => new RegExp(r));
     const label = (st, id) => {
       const fn = st.attributes?.friendly_name;
-      if (fn) return fn.replace(devicePrefix, '').replace(/\s+temperature$/i, '').replace(/\s+temp$/i, '').trim();
+      if (fn) {
+        let l = fn.replace(devicePrefix, '');
+        for (const r of labelStrip) l = l.replace(r, '');
+        return l.replace(/\s+temperature$/i, '').replace(/\s+temp$/i, '').trim();
+      }
       return id.replace(/^[^.]+\./, '').replace(new RegExp(`^${b}_`), '').replace(/_/g, ' ').trim();
     };
 
-    const m = this._entityMappings || DEFAULT_MAPPINGS;
     const table = (arr) => (arr || []).map(([role, patterns]) => [patterns, role]);
     const SENSOR_ROLES = table(m.sensor);
     const NUMBER_ROLES = table(m.number);
@@ -522,6 +594,7 @@ class PrinterCard3D extends HTMLElement {
       if (st.attributes?.hidden === true) continue;
       const domain = id.split('.')[0];
       const suffix = id.replace(/^[^.]+\./, '').replace(new RegExp(`^${b}_`), '');
+      if (ignore.some((r) => r.test(suffix))) continue;
 
       if (domain === 'sensor') {
         const role = matchRole(suffix, SENSOR_ROLES);
@@ -541,7 +614,8 @@ class PrinterCard3D extends HTMLElement {
           }
         } else {
           const unit = st.attributes?.unit_of_measurement;
-          if (unit === '°C' || unit === '°F') remainingSensors.push([id, st, suffix]);
+          const gone = m.hide_unavailable && (st.state === 'unavailable' || st.state === 'unknown');
+          if ((unit === '°C' || unit === '°F') && !gone) remainingSensors.push([id, st, suffix]);
         }
       } else if (domain === 'number') {
         const role = matchRole(suffix, NUMBER_ROLES);
@@ -651,7 +725,8 @@ class PrinterCard3D extends HTMLElement {
   _effectiveStatus() {
     if (this._powerOn() === false) return 'off';
     const printerState = (this._stVal('printer_state') || '').toLowerCase();
-    const printState = (this._stVal('status') || '').toLowerCase();
+    const rawState = (this._stVal('status') || '').toLowerCase();
+    const printState = this._entityMappings?.status_map?.[rawState] || rawState;
     if (!printerState && !printState && this._statusSeen) return 'offline';
     if (printerState === 'error' || printerState === 'shutdown' || printerState === 'startup') return printerState;
     return printState || printerState || 'idle';
