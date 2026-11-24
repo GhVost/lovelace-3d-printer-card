@@ -164,6 +164,8 @@ power_switch: switch.printer_smart_plug
 | `entity_mappings` | string | No | Entity mapping + UI locale. **Check the `entities/` folder** for available options (e.g. `en_generic`, `de_generic`, `de_bambu_generic`), or the built-in `octoprint`. Default: `octoprint` when OctoPrint entities are detected, else `{hass.locale}_generic` or `en_generic` |
 | `cameras` | list | No | Array of `{ entity, rotate }` for rotation overrides only |
 | `power_switch` | string | No | Switch entity ID for the printer's smart plug — adds a power button to the header |
+| `view` | string | No | Starting live view: `printer` (default), `both` (drawing above the camera) or `camera`. The toggle under the view switches it, and the choice is remembered per browser |
+| `terminal` | boolean | No | `false` hides the Terminal section. Shown by default when `moonraker.send_gcode` is available |
 | `variant` | string | No | `full` (default) or `compact`: a glance card whose "Full controls" opens the full card in a dialog |
 | `presets` | map | No | Target presets per heater, keyed by `hotend`, `bed`, a heater's sensor or target entity ID, or its label. Each item is `{ name, value }` or a number. Defaults: hotend PLA 215 / PETG 245 / ABS 260, bed PLA 60 / PETG 80 / ABS 100 |
 
@@ -331,7 +333,9 @@ Optional mapping keys (all used by the built-in OctoPrint mapping):
 **Unreleased**
 - New: OctoPrint support via a built-in mapping, auto-detected from the OctoPrint integration's entities (English and German HA).
 - New: optional mapping keys `ignore`, `hide_unavailable`, `status_map` and `label_strip`.
-- New: `printer_type: delta` drawing; while printing the effector circles and the carriages follow the arm geometry.
+- New: `printer_type: delta` side-view drawing; while printing the effector sweeps and the carriages follow it with constant-length rods.
+- New: live view toggle Printer / Both / Camera (`view` option), with a camera picker when there are several cameras.
+- New: Terminal section for Moonraker/Klipper that sends G-code via `moonraker.send_gcode` to this printer's device (HA returns no console output, so the log shows the sent commands).
 
 **3.0.1**
 - Fixed: the compact card's dialog no longer closes by itself when the dashboard redraws (for example right after you change a setting).

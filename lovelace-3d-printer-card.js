@@ -124,6 +124,10 @@ const OCTOPRINT_MAPPINGS = {
 // UI strings. A mapping file's `ui` block overrides these; missing keys fall back here.
 const DEFAULT_UI = {
   eta: 'ETA',
+  both: 'Both',
+  terminal: 'Terminal',
+  send: 'Send',
+  term_hint: 'Type G-code and press Enter. Tap a sent command to reuse it.',
   elapsed: 'Elapsed',
   file: 'File',
   progress: 'Progress',
@@ -196,6 +200,8 @@ const DEFAULT_UI = {
 
 // Material Design Icons paths (@mdi/js 7.4.47), inlined so the card needs no icon font.
 const ICONS = {
+  'view-split': 'M4,3H20A1,1 0 0,1 21,4V10A1,1 0 0,1 20,11H4A1,1 0 0,1 3,10V4A1,1 0 0,1 4,3M4,13H20A1,1 0 0,1 21,14V20A1,1 0 0,1 20,21H4A1,1 0 0,1 3,20V14A1,1 0 0,1 4,13Z',
+  'console': 'M20,19V7H4V19H20M20,3A2,2 0 0,1 22,5V19A2,2 0 0,1 20,21H4A2,2 0 0,1 2,19V5C2,3.89 2.9,3 4,3H20M13,17V15H18V17H13M9.58,13L5.57,9H8.4L11.7,12.3C12.09,12.69 12.09,13.33 11.7,13.72L8.42,17H5.59L9.58,13Z',
   'printer3d-nozzle': 'M7,2H17V8H19V13H16.5L13,17H11L7.5,13H5V8H7V2M10,22H2V20H10A1,1 0 0,0 11,19V18H13V19A3,3 0 0,1 10,22Z',
   'printer3d': 'M19,6A1,1 0 0,0 20,5A1,1 0 0,0 19,4A1,1 0 0,0 18,5A1,1 0 0,0 19,6M19,2A3,3 0 0,1 22,5V11H18V7H6V11H2V5A3,3 0 0,1 5,2H19M18,18.25C18,18.63 17.79,18.96 17.47,19.13L12.57,21.82C12.4,21.94 12.21,22 12,22C11.79,22 11.59,21.94 11.43,21.82L6.53,19.13C6.21,18.96 6,18.63 6,18.25V13C6,12.62 6.21,12.29 6.53,12.12L11.43,9.68C11.59,9.56 11.79,9.5 12,9.5C12.21,9.5 12.4,9.56 12.57,9.68L17.47,12.12C17.79,12.29 18,12.62 18,13V18.25M12,11.65L9.04,13L12,14.6L14.96,13L12,11.65M8,17.66L11,19.29V16.33L8,14.71V17.66M16,17.66V14.71L13,16.33V19.29L16,17.66Z',
   'power': 'M16.56,5.44L15.11,6.89C16.84,7.94 18,9.83 18,12A6,6 0 0,1 12,18A6,6 0 0,1 6,12C6,9.83 7.16,7.94 8.88,6.88L7.44,5.44C5.36,6.88 4,9.28 4,12A8,8 0 0,0 12,20A8,8 0 0,0 20,12C20,9.28 18.64,6.88 16.56,5.44M13,3H11V13H13',
@@ -366,23 +372,26 @@ function layersSvg(cx, bedTop, objW, objMax, p, color, outline) {
 // height follows the arm geometry (√(L² − d²)), so the arms keep their length.
 function deltaSvg(s, c) {
   const { p, HOT, BED, FR, OBJ } = c;
-  const cx = 125, bedTop = 182, objMax = 86, objW = 50;
+  const ORANGE = '#ff7a45'; // effector and hotend, always orange; heating shows as the glow
+  const cx = 125, bedTop = 182, objMax = 68, objW = 46;
   const objH = objMax * p;
   const nozzleY = bedTop - objH - 2;
   const effY = nozzleY - 12;     // effector plate, arms attach here
-  const L = 120, VS = 0.45, TOP = 26, ATT = 12, BACK = 105;
+  // Rod length and sweep are chosen so the carriages never leave the towers,
+  // which keeps every side rod at exactly L on screen.
+  const L = 88, ATT = 14, BACK = 60, SWEEP = 16;
   // [screen x, plan depth offset, attachment side, faint]
   const towers = [[125, BACK, 0, true], [41, 0, -1, false], [209, 0, 1, false]];
 
   const frame = (ex) => towers.map(([tx, depth, side]) => {
     const ax = cx + ex + side * ATT;
     const d = Math.hypot(tx - ax, depth);
-    const h = Math.sqrt(Math.max(L * L - d * d, 0)) * VS;
-    return { carY: Math.max(TOP, effY - h - 6), ax };
+    const y1 = effY - Math.sqrt(L * L - d * d);   // rod top, on the carriage
+    return { carY: y1 - 7, y1, ax };
   });
 
   const N = 24, DUR = '2.6s';
-  const xs = s.printing ? Array.from({ length: N + 1 }, (_, i) => 30 * Math.sin((2 * Math.PI * i) / N)) : [0];
+  const xs = s.printing ? Array.from({ length: N + 1 }, (_, i) => SWEEP * Math.sin((2 * Math.PI * i) / N)) : [0];
   const frames = xs.map(frame);
   const f0 = frames[0];
   const vals = (fn) => frames.map(fn).map((v) => v.toFixed(1)).join(';');
@@ -390,7 +399,7 @@ function deltaSvg(s, c) {
 
   const towerSvg = towers.map(([tx, , , faint]) => `<rect x="${tx - 5}" y="18" width="10" height="182" rx="3" fill="#141821" stroke="${FR}" stroke-width="1.5" ${faint ? 'opacity=".3"' : ''}/>`).join('');
   const carriage = (i) => [towers[i]].map(([tx, , , faint]) => `<rect x="${tx - 8}" y="${f0[i].carY.toFixed(1)}" width="16" height="13" rx="3" fill="#252b36" stroke="${FR}" ${faint ? 'opacity=".5"' : ''}>${anim('y', (f) => f[i].carY)}</rect>`)[0];
-  const arm = (i) => [towers[i]].map(([tx, , , faint]) => [-2.5, 2.5].map((o) => `<line x1="${tx + o}" y1="${(f0[i].carY + 10).toFixed(1)}" x2="${(f0[i].ax + o).toFixed(1)}" y2="${effY}" stroke="rgba(255,255,255,.4)" stroke-width="1.6" stroke-linecap="round" ${faint ? 'opacity=".4"' : ''}>${anim('y1', (f) => f[i].carY + 10)}${anim('x2', (f) => f[i].ax + o)}</line>`).join(''))[0];
+  const arm = (i) => [towers[i]].map(([tx, , , faint]) => [-2.5, 2.5].map((o) => `<line x1="${tx + o}" y1="${f0[i].y1.toFixed(1)}" x2="${(f0[i].ax + o).toFixed(1)}" y2="${effY}" stroke="rgba(255,255,255,.4)" stroke-width="1.6" stroke-linecap="round" ${faint ? 'opacity=".4"' : ''}>${anim('y1', (f) => f[i].y1)}${anim('x2', (f) => f[i].ax + o)}</line>`).join(''))[0];
   const effMove = s.printing
     ? `<animateTransform attributeName="transform" type="translate" values="${xs.map((x) => `${x.toFixed(1)} 0`).join(';')}" dur="${DUR}" repeatCount="indefinite"/>`
     : '';
@@ -412,9 +421,9 @@ function deltaSvg(s, c) {
   ${arm(1)}${arm(2)}
   <g transform="translate(${cx} ${nozzleY})"><g transform="translate(0 0)">${effMove}
     ${s.hot ? `<ellipse cx="0" cy="4" rx="20" ry="12" fill="url(#p3g1)"/>` : ''}
-    <rect x="-16" y="-14" width="32" height="5" rx="2" fill="#252b36" stroke="${HOT}" stroke-width="1.5"/>
-    <rect x="-6" y="-9" width="12" height="7" rx="2" fill="#252b36" stroke="${HOT}" stroke-width="1"/>
-    <path d="M-4 -2h8l-4 6z" fill="${HOT}"/>
+    <rect x="-16" y="-14" width="32" height="5" rx="2" fill="${ORANGE}"/>
+    <rect x="-6" y="-9" width="12" height="7" rx="2" fill="${ORANGE}"/>
+    <path d="M-4 -2h8l-4 6z" fill="${ORANGE}"/>
   </g></g>
 </svg>`;
 }
@@ -513,7 +522,10 @@ class PrinterCard3D extends HTMLElement {
     this._skeletonFor = null;
     this._lastHtml = new Map();
     this._open = {};            // <details> open state by section
-    this._tab = null;           // live view: 'printer' or a camera entity id
+    this._tab = null;           // selected camera entity id
+    this._view = null;          // live view mode: 'printer' | 'both' | 'camera'
+    this._vm = 'printer';       // effective mode after availability checks
+    this._term = [];            // terminal log: { time, cmd, err }
     this._sel = null;           // heater whose target setter is open
     this._confirm = null;       // armed two-tap action
     this._confirmTimer = null;
@@ -885,6 +897,9 @@ class PrinterCard3D extends HTMLElement {
     const r = this.shadowRoot;
     r.addEventListener('click', (e) => this._onClick(e));
     r.addEventListener('pointerdown', (e) => this._onPointerDown(e));
+    r.addEventListener('keydown', (e) => {
+      if (e.target?.id === 'tin' && e.key === 'Enter') { e.preventDefault(); this._termSend(); }
+    });
     // <details> toggles don't bubble; capture them to remember which sections are open.
     r.addEventListener('toggle', (e) => {
       const d = e.target;
@@ -919,6 +934,7 @@ class PrinterCard3D extends HTMLElement {
       <div id="r-tune"></div>
       <div id="r-move"></div>
       <div id="r-macros"></div>
+      <div id="r-term"></div>
       <div id="r-sys"></div>
     </div>
   </div>
@@ -972,13 +988,29 @@ class PrinterCard3D extends HTMLElement {
         ${totals ? `<div class="facts f3">${totals}</div>` : ''}</div>`;
     }
 
-    // Live view: the drawing, then one tab per camera. Cameras keep working with the printer off.
-    const tabs = [...(s.offLike ? [] : [{ key: 'printer', label: t('printer'), icon: 'cube-outline' }]),
-      ...this._cameras.map((c, i) => ({ key: c.entity, label: c.label || `${t('camera_fallback')} ${i + 1}`, icon: 'cctv' }))];
-    if (!tabs.some((x) => x.key === this._tab)) this._tab = tabs[0]?.key ?? null;
-    const tabsHtml = tabs.length > 1 || (tabs.length && tabs[0].key !== 'printer')
-      ? tabs.map((x) => `<button class="${x.key === this._tab ? 'on' : ''}" data-action="tab" data-key="${esc(x.key)}">${ico(x.icon, 15)}<span>${esc(x.label)}</span></button>`).join('')
+    // Live view: a mode toggle (printer drawing / both stacked / camera), plus a
+    // camera picker when there is more than one camera. Cameras keep working
+    // with the printer off.
+    const cams = this._cameras;
+    const modes = s.offLike ? (cams.length ? ['camera'] : []) : (cams.length ? ['printer', 'both', 'camera'] : ['printer']);
+    if (this._view == null) {
+      try { this._view = localStorage.getItem(`l3pc-view:${cfg.base_entity}`); } catch (e) { /* storage unavailable */ }
+      this._view = this._view || cfg.view || 'printer';
+    }
+    this._vm = modes.includes(this._view) ? this._view : (modes.includes('camera') && s.offLike ? 'camera' : modes[0] || 'printer');
+    if (!cams.some((c) => c.entity === this._tab)) this._tab = cams[0]?.entity ?? null;
+    const tabs = modes;
+    const modeInfo = {
+      printer: [t('printer'), 'cube-outline'],
+      both: [t('both'), 'view-split'],
+      camera: [cams.length === 1 ? (cams[0].label || t('camera_fallback')) : t('camera_fallback'), 'cctv'],
+    };
+    const btn = (action, key, label, icon, on) => `<button class="${on ? 'on' : ''}" data-action="${action}" data-key="${esc(key)}">${icon ? ico(icon, 15) : ''}<span>${esc(label)}</span></button>`;
+    const modeRow = modes.length > 1 ? `<div class="trow">${modes.map((m) => btn('view', m, modeInfo[m][0], modeInfo[m][1], m === this._vm)).join('')}</div>` : '';
+    const camRow = cams.length > 1 && this._vm !== 'printer'
+      ? `<div class="trow">${cams.map((c, i) => btn('tab', c.entity, c.label || `${t('camera_fallback')} ${i + 1}`, 'cctv', c.entity === this._tab)).join('')}</div>`
       : '';
+    const tabsHtml = modeRow + camRow;
     const draw = s.offLike ? '' : printerSvg(cfg.printer_type, {
       p: s.progress / 100, printing: s.printing,
       hot: s.hotendTarget > 0, bed: s.bedTarget > 0, cham: s.chamberTarget > 0,
@@ -1020,6 +1052,7 @@ class PrinterCard3D extends HTMLElement {
       'r-tune': s.offLike ? '' : this._tuneHtml(),
       'r-move': s.offLike ? '' : this._moveHtml(s),
       'r-macros': s.offLike ? '' : this._macrosHtml(s),
+      'r-term': s.offLike ? '' : this._termHtml(),
       'r-sys': s.status === 'off' ? '' : this._sysHtml(),
     };
     return {
@@ -1189,6 +1222,53 @@ class PrinterCard3D extends HTMLElement {
     return this._details('macros', 'code-braces', this._t('macros'), String(this._macros.length), body);
   }
 
+  // ── Terminal ────────────────────────────────────────────────────────────────
+  // Sends G-code through Home Assistant. Moonraker/Klipper: moonraker.send_gcode
+  // (to this printer's device). HA returns no console output, so the log shows
+  // what was sent and whether HA accepted it.
+  _termBackend() {
+    if (this._config.terminal === false) return null;
+    const sv = this._hass.services || {};
+    if (this._entityMappings !== OCTOPRINT_MAPPINGS && sv.moonraker?.send_gcode) return 'moonraker';
+    return null;
+  }
+
+  _termDevice() {
+    const reg = this._hass.entities || {};
+    for (const id of Object.values(this._entities)) if (id && reg[id]?.device_id) return reg[id].device_id;
+    return null;
+  }
+
+  _termHtml() {
+    if (!this._termBackend()) return '';
+    const log = this._term.length
+      ? this._term.map((l) => `<div class="tl ${l.err ? 'err' : ''}"><span class="tt">${esc(l.time)}</span><button class="tc" data-action="term-cmd" data-cmd="${esc(l.cmd)}">${esc(l.cmd)}</button>${l.err ? `<span class="te">${esc(l.err)}</span>` : ''}</div>`).join('')
+      : `<div class="tl muted">${esc(this._t('term_hint'))}</div>`;
+    const body = `<div class="term"><div class="tlog">${log}</div>
+      <div class="tin"><span class="tp">&gt;</span><input id="tin" type="text" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="G28, M117 Hello …"><button class="chip" data-action="term-send">${esc(this._t('send'))}</button></div></div>`;
+    const last = this._term[this._term.length - 1];
+    return this._details('term', 'console', this._t('terminal'), last ? last.cmd : 'G-code', body);
+  }
+
+  _termSend() {
+    const inp = this.shadowRoot.getElementById('tin');
+    const cmd = (inp?.value || '').trim();
+    if (!cmd || this._termBackend() !== 'moonraker') return;
+    const entry = { time: new Date().toLocaleTimeString(this._hass?.locale?.language, { hour: '2-digit', minute: '2-digit', second: '2-digit' }), cmd, err: null };
+    this._term = [...this._term, entry].slice(-30);
+    const data = { gcode: cmd };
+    const dev = this._termDevice();
+    if (dev) data.device_id = dev;
+    Promise.resolve(this._hass.callService('moonraker', 'send_gcode', data))
+      .catch((err) => { entry.err = err?.message || 'failed'; })
+      .finally(() => this._render());
+    this._render();
+    const again = this.shadowRoot.getElementById('tin');
+    if (again) { again.value = ''; again.focus(); }
+    const lg = this.shadowRoot.querySelector('.tlog');
+    if (lg) lg.scrollTop = lg.scrollHeight;
+  }
+
   _sysHtml() {
     const t = (k) => this._t(k);
     const btn = (id, lbl, danger) => {
@@ -1244,9 +1324,10 @@ class PrinterCard3D extends HTMLElement {
     const root = this.shadowRoot;
     const wrap = root?.getElementById('cams');
     if (!wrap) return;
-    const cam = this._tab && this._tab !== 'printer' ? this._cameras.find((c) => c.entity === this._tab) : null;
+    const cam = this._vm !== 'printer' && this._tab ? this._cameras.find((c) => c.entity === this._tab) : null;
     const draw = root.getElementById('r-draw');
-    if (draw) draw.style.display = cam ? 'none' : '';
+    if (draw) draw.style.display = cam && this._vm === 'camera' ? 'none' : '';
+    wrap.parentElement?.classList.toggle('both', !!cam && this._vm === 'both');
     if (!cam) {
       if (wrap.firstChild) wrap.replaceChildren();
       wrap.style.display = 'none';
@@ -1378,7 +1459,17 @@ class PrinterCard3D extends HTMLElement {
     switch (a) {
       case 'open-dialog': this._openDialog(); return;
       case 'close-dialog': this.dispatchEvent(new CustomEvent('p3d-close')); return;
-      case 'tab': this._tab = el.dataset.key; this._render(); return;
+      case 'tab': this._tab = el.dataset.key; this._render(); this._syncCams(); return;
+      case 'view':
+        this._view = el.dataset.key;
+        try { localStorage.setItem(`l3pc-view:${this._config.base_entity}`, this._view); } catch (e) { /* storage unavailable */ }
+        this._render(); this._syncCams(); return;
+      case 'term-send': this._termSend(); return;
+      case 'term-cmd': {
+        const inp = this.shadowRoot.getElementById('tin');
+        if (inp) { inp.value = el.dataset.cmd; inp.focus(); }
+        return;
+      }
       case 'toggle-power': {
         const ps = this._config.power_switch;
         if (!ps) return;
@@ -1547,7 +1638,22 @@ button:disabled { cursor: default; opacity: .38; }
 .cam { display: block; width: 100%; height: 100%; transform: rotate(var(--rot, 0deg)); transform-origin: center; }
 .cam.r90, .cam.r270 { transform: rotate(var(--rot)) scale(1.78); }
 .live { position: absolute; top: 12px; left: 12px; font-size: 10.5px; font-weight: 700; letter-spacing: .08em; background: rgba(255,92,108,.9); color: #fff; padding: 3px 7px; border-radius: 6px; pointer-events: none; }
-.tabs { display: flex; gap: 6px; padding: 8px; border-top: 1px solid var(--line); background: rgba(0,0,0,.18); }
+.tabs { display: flex; flex-direction: column; gap: 6px; padding: 8px; border-top: 1px solid var(--line); background: rgba(0,0,0,.18); }
+.trow { display: flex; gap: 6px; }
+.view.both { height: auto; display: flex; flex-direction: column; }
+.view.both .draw { height: 230px; }
+.view.both .camwrap { position: relative; inset: auto; width: 100%; aspect-ratio: 16 / 9; border-top: 1px solid var(--line); }
+.term { display: flex; flex-direction: column; gap: 8px; }
+.tlog { max-height: 180px; overflow-y: auto; background: #0b0e13; border: 1px solid var(--line); border-radius: 12px; padding: 8px 10px; font: 12px/1.6 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
+.tl { display: flex; gap: 8px; align-items: baseline; }
+.tl.muted { color: var(--text3); font-family: inherit; }
+.tt { color: var(--text3); flex: none; }
+.tc { color: #5eead4; text-align: left; font: inherit; padding: 0; background: none; }
+.tl.err .tc { color: #ff7a45; }
+.te { color: #ff5c6c; }
+.tin { display: flex; gap: 8px; align-items: center; background: #0b0e13; border: 1px solid var(--line); border-radius: 12px; padding: 4px 4px 4px 10px; }
+.tp { color: #ff7a45; font: 600 13px ui-monospace, monospace; }
+.tin input { flex: 1; min-width: 0; background: none; border: 0; outline: 0; color: var(--text); font: 13px ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
 .tabs:empty { display: none; }
 .tabs button { flex: 1; min-width: 0; height: 32px; border-radius: 10px; font-size: 12px; font-weight: 600; color: var(--text2); display: flex; align-items: center; justify-content: center; gap: 6px; }
 .tabs button span { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
