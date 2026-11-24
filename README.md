@@ -352,7 +352,7 @@ Optional mapping keys (all used by the built-in OctoPrint mapping):
 
 ## Changelog
 
-**Unreleased**
+**3.1.0-ghvost**
 - New: OctoPrint support via a built-in mapping, auto-detected from the OctoPrint integration's entities (English and German HA).
 - New: example package `examples/octoprint_package.yaml` adds emergency stop, homing, jogging, speed/flow and fan control for OctoPrint printers.
 - New: optional mapping keys `ignore`, `hide_unavailable`, `status_map` and `label_strip`.

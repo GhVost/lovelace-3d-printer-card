@@ -14,7 +14,7 @@
 // =============================================================================
 
 const CARD_TAG = 'lovelace-3d-printer-card';
-const CARD_VERSION = '3.0.1';
+const CARD_VERSION = '3.1.0-ghvost';
 
 // ── Default entity mappings (fallback when the mapping file can't load) ──────
 const DEFAULT_MAPPINGS = {
