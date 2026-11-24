@@ -125,11 +125,6 @@ const OCTOPRINT_MAPPINGS = {
 const DEFAULT_UI = {
   eta: 'ETA',
   both: 'Both',
-  terminal: 'Terminal',
-  send: 'Send',
-  open_new_tab: 'Open in new tab',
-  term_https: 'This terminal page uses http://, which an https:// dashboard cannot embed. Give terminal_url an https:// address, or open it in a new tab.',
-  term_hint: 'Type G-code and press Enter. Tap a sent command to reuse it.',
   elapsed: 'Elapsed',
   file: 'File',
   progress: 'Progress',
@@ -203,7 +198,6 @@ const DEFAULT_UI = {
 // Material Design Icons paths (@mdi/js 7.4.47), inlined so the card needs no icon font.
 const ICONS = {
   'view-split': 'M4,3H20A1,1 0 0,1 21,4V10A1,1 0 0,1 20,11H4A1,1 0 0,1 3,10V4A1,1 0 0,1 4,3M4,13H20A1,1 0 0,1 21,14V20A1,1 0 0,1 20,21H4A1,1 0 0,1 3,20V14A1,1 0 0,1 4,13Z',
-  'console': 'M20,19V7H4V19H20M20,3A2,2 0 0,1 22,5V19A2,2 0 0,1 20,21H4A2,2 0 0,1 2,19V5C2,3.89 2.9,3 4,3H20M13,17V15H18V17H13M9.58,13L5.57,9H8.4L11.7,12.3C12.09,12.69 12.09,13.33 11.7,13.72L8.42,17H5.59L9.58,13Z',
   'printer3d-nozzle': 'M7,2H17V8H19V13H16.5L13,17H11L7.5,13H5V8H7V2M10,22H2V20H10A1,1 0 0,0 11,19V18H13V19A3,3 0 0,1 10,22Z',
   'printer3d': 'M19,6A1,1 0 0,0 20,5A1,1 0 0,0 19,4A1,1 0 0,0 18,5A1,1 0 0,0 19,6M19,2A3,3 0 0,1 22,5V11H18V7H6V11H2V5A3,3 0 0,1 5,2H19M18,18.25C18,18.63 17.79,18.96 17.47,19.13L12.57,21.82C12.4,21.94 12.21,22 12,22C11.79,22 11.59,21.94 11.43,21.82L6.53,19.13C6.21,18.96 6,18.63 6,18.25V13C6,12.62 6.21,12.29 6.53,12.12L11.43,9.68C11.59,9.56 11.79,9.5 12,9.5C12.21,9.5 12.4,9.56 12.57,9.68L17.47,12.12C17.79,12.29 18,12.62 18,13V18.25M12,11.65L9.04,13L12,14.6L14.96,13L12,11.65M8,17.66L11,19.29V16.33L8,14.71V17.66M16,17.66V14.71L13,16.33V19.29L16,17.66Z',
   'power': 'M16.56,5.44L15.11,6.89C16.84,7.94 18,9.83 18,12A6,6 0 0,1 12,18A6,6 0 0,1 6,12C6,9.83 7.16,7.94 8.88,6.88L7.44,5.44C5.36,6.88 4,9.28 4,12A8,8 0 0,0 12,20A8,8 0 0,0 20,12C20,9.28 18.64,6.88 16.56,5.44M13,3H11V13H13',
@@ -527,7 +521,6 @@ class PrinterCard3D extends HTMLElement {
     this._tab = null;           // selected camera entity id
     this._view = null;          // live view mode: 'printer' | 'both' | 'camera'
     this._vm = 'printer';       // effective mode after availability checks
-    this._term = [];            // terminal log: { time, cmd, err }
     this._sel = null;           // heater whose target setter is open
     this._confirm = null;       // armed two-tap action
     this._confirmTimer = null;
@@ -899,16 +892,10 @@ class PrinterCard3D extends HTMLElement {
     const r = this.shadowRoot;
     r.addEventListener('click', (e) => this._onClick(e));
     r.addEventListener('pointerdown', (e) => this._onPointerDown(e));
-    r.addEventListener('keydown', (e) => {
-      if (e.target?.id === 'tin' && e.key === 'Enter') { e.preventDefault(); this._termSend(); }
-    });
     // <details> toggles don't bubble; capture them to remember which sections are open.
     r.addEventListener('toggle', (e) => {
       const d = e.target;
-      if (d instanceof HTMLDetailsElement && d.dataset.sec) {
-        this._open[d.dataset.sec] = d.open;
-        if (d.dataset.sec === 'term' && this._config?.terminal_url) this._render();
-      }
+      if (d instanceof HTMLDetailsElement && d.dataset.sec) this._open[d.dataset.sec] = d.open;
     }, true);
     this._built = true;
     PrinterCard3D._loadFont();
@@ -939,7 +926,6 @@ class PrinterCard3D extends HTMLElement {
       <div id="r-tune"></div>
       <div id="r-move"></div>
       <div id="r-macros"></div>
-      <div id="r-term"></div>
       <div id="r-sys"></div>
     </div>
   </div>
@@ -1057,7 +1043,6 @@ class PrinterCard3D extends HTMLElement {
       'r-tune': s.offLike ? '' : this._tuneHtml(),
       'r-move': s.offLike ? '' : this._moveHtml(s),
       'r-macros': s.offLike ? '' : this._macrosHtml(s),
-      'r-term': s.offLike ? '' : this._termHtml(),
       'r-sys': s.status === 'off' ? '' : this._sysHtml(),
     };
     return {
@@ -1225,71 +1210,6 @@ class PrinterCard3D extends HTMLElement {
     const dis = s.printing ? 'disabled' : '';
     const body = `<div class="macros">${this._macros.map((m) => `<button data-action="run-macro" data-entity="${m.entity_id}" ${dis} title="${esc(m.label)}">${ico('play', 15)}<span>${esc(m.label)}</span></button>`).join('')}</div>`;
     return this._details('macros', 'code-braces', this._t('macros'), String(this._macros.length), body);
-  }
-
-  // ── Terminal ────────────────────────────────────────────────────────────────
-  // Sends G-code through Home Assistant. Moonraker/Klipper: moonraker.send_gcode
-  // (to this printer's device). HA returns no console output, so the log shows
-  // what was sent and whether HA accepted it.
-  _termBackend() {
-    if (this._config.terminal === false) return null;
-    if (this._config.terminal_url) return 'embed';
-    const sv = this._hass.services || {};
-    if (this._entityMappings !== OCTOPRINT_MAPPINGS && sv.moonraker?.send_gcode) return 'moonraker';
-    return null;
-  }
-
-  _termDevice() {
-    const reg = this._hass.entities || {};
-    for (const id of Object.values(this._entities)) if (id && reg[id]?.device_id) return reg[id].device_id;
-    return null;
-  }
-
-  _termHtml() {
-    const backend = this._termBackend();
-    if (!backend) return '';
-    if (backend === 'embed') return this._termEmbedHtml();
-    const log = this._term.length
-      ? this._term.map((l) => `<div class="tl ${l.err ? 'err' : ''}"><span class="tt">${esc(l.time)}</span><button class="tc" data-action="term-cmd" data-cmd="${esc(l.cmd)}">${esc(l.cmd)}</button>${l.err ? `<span class="te">${esc(l.err)}</span>` : ''}</div>`).join('')
-      : `<div class="tl muted">${esc(this._t('term_hint'))}</div>`;
-    const body = `<div class="term"><div class="tlog">${log}</div>
-      <div class="tin"><span class="tp">&gt;</span><input id="tin" type="text" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="G28, M117 Hello …"><button class="chip" data-action="term-send">${esc(this._t('send'))}</button></div></div>`;
-    const last = this._term[this._term.length - 1];
-    return this._details('term', 'console', this._t('terminal'), last ? last.cmd : 'G-code', body);
-  }
-
-  // terminal_url: the printer UI's own terminal (OctoPrint .../#term, Mainsail
-  // .../console) shown inside the card's Terminal section. An http:// page
-  // can't be embedded in an https:// dashboard, so that case shows a hint.
-  _termEmbedHtml() {
-    const url = String(this._config.terminal_url);
-    const blocked = /^http:/i.test(url) && location.protocol === 'https:';
-    const open = `<a class="chip" href="${esc(url)}" target="_blank" rel="noopener noreferrer">${esc(this._t('open_new_tab'))}</a>`;
-    const body = blocked
-      ? `<div class="term"><div class="tl muted">${esc(this._t('term_https'))}</div><div class="tbar">${open}</div></div>`
-      : `<div class="term"><div class="tframe">${this._open.term ? `<iframe src="${esc(url)}" title="${esc(this._t('terminal'))}" referrerpolicy="no-referrer"></iframe>` : ''}</div><div class="tbar">${open}</div></div>`;
-    let host = url;
-    try { host = new URL(url, location.href).host; } catch (e) { /* keep raw */ }
-    return this._details('term', 'console', this._t('terminal'), host, body);
-  }
-
-  _termSend() {
-    const inp = this.shadowRoot.getElementById('tin');
-    const cmd = (inp?.value || '').trim();
-    if (!cmd || this._termBackend() !== 'moonraker') return;
-    const entry = { time: new Date().toLocaleTimeString(this._hass?.locale?.language, { hour: '2-digit', minute: '2-digit', second: '2-digit' }), cmd, err: null };
-    this._term = [...this._term, entry].slice(-30);
-    const data = { gcode: cmd };
-    const dev = this._termDevice();
-    if (dev) data.device_id = dev;
-    Promise.resolve(this._hass.callService('moonraker', 'send_gcode', data))
-      .catch((err) => { entry.err = err?.message || 'failed'; })
-      .finally(() => this._render());
-    this._render();
-    const again = this.shadowRoot.getElementById('tin');
-    if (again) { again.value = ''; again.focus(); }
-    const lg = this.shadowRoot.querySelector('.tlog');
-    if (lg) lg.scrollTop = lg.scrollHeight;
   }
 
   _sysHtml() {
@@ -1487,12 +1407,7 @@ class PrinterCard3D extends HTMLElement {
         this._view = el.dataset.key;
         try { localStorage.setItem(`l3pc-view:${this._config.base_entity}`, this._view); } catch (e) { /* storage unavailable */ }
         this._render(); this._syncCams(); return;
-      case 'term-send': this._termSend(); return;
-      case 'term-cmd': {
-        const inp = this.shadowRoot.getElementById('tin');
-        if (inp) { inp.value = el.dataset.cmd; inp.focus(); }
-        return;
-      }
+
       case 'toggle-power': {
         const ps = this._config.power_switch;
         if (!ps) return;
@@ -1666,21 +1581,6 @@ button:disabled { cursor: default; opacity: .38; }
 .view.both { height: auto; display: flex; flex-direction: column; }
 .view.both .draw { height: 230px; }
 .view.both .camwrap { position: relative; inset: auto; width: 100%; aspect-ratio: 16 / 9; border-top: 1px solid var(--line); }
-.term { display: flex; flex-direction: column; gap: 8px; }
-.tframe { height: 380px; background: #0b0e13; border: 1px solid var(--line); border-radius: 12px; overflow: hidden; }
-.tframe iframe { width: 100%; height: 100%; border: 0; display: block; background: #0b0e13; }
-.tbar { display: flex; justify-content: flex-end; }
-.tbar .chip { text-decoration: none; }
-.tlog { max-height: 180px; overflow-y: auto; background: #0b0e13; border: 1px solid var(--line); border-radius: 12px; padding: 8px 10px; font: 12px/1.6 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
-.tl { display: flex; gap: 8px; align-items: baseline; }
-.tl.muted { color: var(--text3); font-family: inherit; }
-.tt { color: var(--text3); flex: none; }
-.tc { color: #5eead4; text-align: left; font: inherit; padding: 0; background: none; }
-.tl.err .tc { color: #ff7a45; }
-.te { color: #ff5c6c; }
-.tin { display: flex; gap: 8px; align-items: center; background: #0b0e13; border: 1px solid var(--line); border-radius: 12px; padding: 4px 4px 4px 10px; }
-.tp { color: #ff7a45; font: 600 13px ui-monospace, monospace; }
-.tin input { flex: 1; min-width: 0; background: none; border: 0; outline: 0; color: var(--text); font: 13px ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
 .tabs:empty { display: none; }
 .tabs button { flex: 1; min-width: 0; height: 32px; border-radius: 10px; font-size: 12px; font-weight: 600; color: var(--text2); display: flex; align-items: center; justify-content: center; gap: 6px; }
 .tabs button span { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
