@@ -80,8 +80,17 @@ const OCTOPRINT_MAPPINGS = {
   number: [
     ['hotend_target', ['extruder_temperature', 'extruder_temperatur']],
     ['bed_target', ['bed_temperature', 'bett_temperatur']],
+    ['speed_factor', ['speed_factor']],
+    ['flow_factor', ['flow_factor']],
   ],
+  // emergency_stop, home_* and the factors aren't part of the OctoPrint
+  // integration; they match helper entities a user can add (README).
   button: [
+    ['emergency', ['emergency_stop']],
+    ['home_all', ['home_all_axes']],
+    ['home_x', ['home_x_axis']],
+    ['home_y', ['home_y_axis']],
+    ['home_z', ['home_z_axis']],
     ['cancel', ['stop_job']],
     ['pause', ['pause_job']],
     ['resume', ['resume_job']],
