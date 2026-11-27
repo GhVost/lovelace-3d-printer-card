@@ -74,6 +74,7 @@ export default {
     shutdown_host: "Shutdown Host",
     cameras: "Cameras",
     camera_fallback: "Camera",
+    all_cams: "All",
     home_all: "All",
     printer: "Printer",
     tune: "Tune",

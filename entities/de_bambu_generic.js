@@ -75,6 +75,7 @@ export default {
     shutdown_host: "Host herunterfahren",
     cameras: "Kameras",
     camera_fallback: "Kamera",
+    all_cams: "Alle",
     home_all: "Alle",
     printer: "Drucker",
     tune: "Feineinstellung",

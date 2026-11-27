@@ -1,5 +1,5 @@
 // =============================================================================
-// Lovelace 3D Printer Card  v3.1.0
+// Lovelace 3D Printer Card  v3.2.0-ghvost
 // Dark, app-style card for Moonraker/Klipper printers (and others whose
 // entities follow the same naming), with live printer drawing and cameras.
 //
@@ -14,7 +14,7 @@
 // =============================================================================
 
 const CARD_TAG = 'lovelace-3d-printer-card';
-const CARD_VERSION = '3.1.0-ghvost';
+const CARD_VERSION = '3.2.0-ghvost';
 
 // ── Default entity mappings (fallback when the mapping file can't load) ──────
 const DEFAULT_MAPPINGS = {
@@ -134,6 +134,7 @@ const OCTOPRINT_MAPPINGS = {
 const DEFAULT_UI = {
   eta: 'ETA',
   both: 'Both',
+  all_cams: 'All',
   elapsed: 'Elapsed',
   file: 'File',
   progress: 'Progress',
@@ -206,6 +207,7 @@ const DEFAULT_UI = {
 
 // Material Design Icons paths (@mdi/js 7.4.47), inlined so the card needs no icon font.
 const ICONS = {
+  'view-grid': 'M3,11H11V3H3M3,21H11V13H3M13,21H21V13H13M13,3V11H21V3',
   'view-split': 'M4,3H20A1,1 0 0,1 21,4V10A1,1 0 0,1 20,11H4A1,1 0 0,1 3,10V4A1,1 0 0,1 4,3M4,13H20A1,1 0 0,1 21,14V20A1,1 0 0,1 20,21H4A1,1 0 0,1 3,20V14A1,1 0 0,1 4,13Z',
   'printer3d-nozzle': 'M7,2H17V8H19V13H16.5L13,17H11L7.5,13H5V8H7V2M10,22H2V20H10A1,1 0 0,0 11,19V18H13V19A3,3 0 0,1 10,22Z',
   'printer3d': 'M19,6A1,1 0 0,0 20,5A1,1 0 0,0 19,4A1,1 0 0,0 18,5A1,1 0 0,0 19,6M19,2A3,3 0 0,1 22,5V11H18V7H6V11H2V5A3,3 0 0,1 5,2H19M18,18.25C18,18.63 17.79,18.96 17.47,19.13L12.57,21.82C12.4,21.94 12.21,22 12,22C11.79,22 11.59,21.94 11.43,21.82L6.53,19.13C6.21,18.96 6,18.63 6,18.25V13C6,12.62 6.21,12.29 6.53,12.12L11.43,9.68C11.59,9.56 11.79,9.5 12,9.5C12.21,9.5 12.4,9.56 12.57,9.68L17.47,12.12C17.79,12.29 18,12.62 18,13V18.25M12,11.65L9.04,13L12,14.6L14.96,13L12,11.65M8,17.66L11,19.29V16.33L8,14.71V17.66M16,17.66V14.71L13,16.33V19.29L16,17.66Z',
@@ -1020,7 +1022,11 @@ class PrinterCard3D extends HTMLElement {
       this._view = this._view || cfg.view || 'printer';
     }
     this._vm = modes.includes(this._view) ? this._view : (modes.includes('camera') && s.offLike ? 'camera' : modes[0] || 'printer');
-    if (!cams.some((c) => c.entity === this._tab)) this._tab = cams[0]?.entity ?? null;
+    if (this._tab == null) {
+      try { this._tab = localStorage.getItem(`l3pc-cam:${cfg.base_entity}`); } catch (e) { /* storage unavailable */ }
+    }
+    // '*' shows every camera at once; it needs at least two.
+    if (!(this._tab === '*' && cams.length > 1) && !cams.some((c) => c.entity === this._tab)) this._tab = cams[0]?.entity ?? null;
     const tabs = modes;
     const modeInfo = {
       printer: [t('printer'), 'cube-outline'],
@@ -1030,7 +1036,7 @@ class PrinterCard3D extends HTMLElement {
     const btn = (action, key, label, icon, on) => `<button class="${on ? 'on' : ''}" data-action="${action}" data-key="${esc(key)}">${icon ? ico(icon, 15) : ''}<span>${esc(label)}</span></button>`;
     const modeRow = modes.length > 1 ? `<div class="trow">${modes.map((m) => btn('view', m, modeInfo[m][0], modeInfo[m][1], m === this._vm)).join('')}</div>` : '';
     const camRow = cams.length > 1 && this._vm !== 'printer'
-      ? `<div class="trow">${cams.map((c, i) => btn('tab', c.entity, c.label || `${t('camera_fallback')} ${i + 1}`, 'cctv', c.entity === this._tab)).join('')}</div>`
+      ? `<div class="trow">${cams.map((c, i) => btn('tab', c.entity, c.label || `${t('camera_fallback')} ${i + 1}`, 'cctv', c.entity === this._tab)).join('')}${btn('tab', '*', t('all_cams'), 'view-grid', this._tab === '*')}</div>`
       : '';
     const tabsHtml = modeRow + camRow;
     const draw = s.offLike ? '' : printerSvg(cfg.printer_type, {
@@ -1298,42 +1304,61 @@ class PrinterCard3D extends HTMLElement {
     slot.appendChild(this._thumbEl);
   }
 
-  // Keep at most one live <ha-camera-stream> (the selected tab), created once and
-  // only given a new stateObj when Home Assistant sends one.
+  // Live <ha-camera-stream>s only for the selected tab (or every camera when the
+  // tab is '*'), created once per selection and only given a new stateObj when
+  // Home Assistant sends one.
   _syncCams() {
     const root = this.shadowRoot;
     const wrap = root?.getElementById('cams');
     if (!wrap) return;
-    const cam = this._vm !== 'printer' && this._tab ? this._cameras.find((c) => c.entity === this._tab) : null;
+    const sel = this._vm === 'printer' || !this._tab ? []
+      : this._tab === '*' ? this._cameras : this._cameras.filter((c) => c.entity === this._tab);
+    const on = sel.length > 0;
+    const grid = sel.length > 1;
     const draw = root.getElementById('r-draw');
-    if (draw) draw.style.display = cam && this._vm === 'camera' ? 'none' : '';
-    wrap.parentElement?.classList.toggle('both', !!cam && this._vm === 'both');
-    wrap.parentElement?.classList.toggle('camonly', !!cam && this._vm === 'camera');
-    wrap.style.setProperty('--cam-ar', cam?.aspect || '16 / 9');
-    if (!cam) {
+    if (draw) draw.style.display = on && this._vm === 'camera' ? 'none' : '';
+    wrap.parentElement?.classList.toggle('both', on && this._vm === 'both');
+    wrap.parentElement?.classList.toggle('camonly', on && this._vm === 'camera');
+    wrap.classList.toggle('grid', grid);
+    wrap.style.setProperty('--cam-ar', sel[0]?.aspect || '16 / 9');
+    if (!on) {
       if (wrap.firstChild) wrap.replaceChildren();
+      wrap.dataset.key = '';
       wrap.style.display = 'none';
       return;
     }
     wrap.style.display = '';
-    let el = wrap.querySelector('ha-camera-stream');
-    if (!el || el.dataset.entity !== cam.entity) {
-      wrap.replaceChildren();
-      el = document.createElement('ha-camera-stream');
-      el.dataset.entity = cam.entity;
-      el.muted = true;
-      el.allowExoPlayer = true;
-      el.setAttribute('muted', '');
-      el.className = `cam r${((cam.rotate % 360) + 360) % 360}`;
-      el.style.setProperty('--rot', `${cam.rotate}deg`);
-      wrap.appendChild(el);
+    const key = sel.map((c) => c.entity).join('|');
+    if (wrap.dataset.key !== key) {
+      wrap.dataset.key = key;
       const live = document.createElement('span');
       live.className = 'live';
       live.textContent = 'LIVE';
-      wrap.appendChild(live);
+      wrap.replaceChildren(live, ...sel.map((cam) => {
+        const cell = document.createElement('div');
+        cell.className = 'camcell';
+        cell.style.setProperty('--cam-ar', cam.aspect || '16 / 9');
+        const el = document.createElement('ha-camera-stream');
+        el.dataset.entity = cam.entity;
+        el.muted = true;
+        el.allowExoPlayer = true;
+        el.setAttribute('muted', '');
+        el.className = `cam r${((cam.rotate % 360) + 360) % 360}`;
+        el.style.setProperty('--rot', `${cam.rotate}deg`);
+        cell.appendChild(el);
+        if (grid) {
+          const lbl = document.createElement('span');
+          lbl.className = 'camlbl';
+          lbl.textContent = cam.label || this._t('camera_fallback');
+          cell.appendChild(lbl);
+        }
+        return cell;
+      }));
     }
-    const st = this._hass.states[cam.entity];
-    if (st && el.stateObj !== st) { el.hass = this._hass; el.stateObj = st; }
+    for (const el of wrap.querySelectorAll('ha-camera-stream')) {
+      const st = this._hass.states[el.dataset.entity];
+      if (st && el.stateObj !== st) { el.hass = this._hass; el.stateObj = st; }
+    }
   }
 
   // ── Compact glance card ─────────────────────────────────────────────────────
@@ -1468,7 +1493,10 @@ class PrinterCard3D extends HTMLElement {
     switch (a) {
       case 'open-dialog': this._openDialog(); return;
       case 'close-dialog': this.dispatchEvent(new CustomEvent('p3d-close')); return;
-      case 'tab': this._tab = el.dataset.key; this._render(); this._syncCams(); return;
+      case 'tab':
+        this._tab = el.dataset.key;
+        try { localStorage.setItem(`l3pc-cam:${this._config.base_entity}`, this._tab); } catch (e) { /* storage unavailable */ }
+        this._render(); this._syncCams(); return;
       case 'view':
         this._view = el.dataset.key;
         try { localStorage.setItem(`l3pc-view:${this._config.base_entity}`, this._view); } catch (e) { /* storage unavailable */ }
@@ -1646,9 +1674,11 @@ button:disabled { cursor: default; opacity: .38; }
 .draw { display: grid; place-items: center; width: 100%; height: 100%; }
 .draw svg { width: 250px; height: 230px; max-width: 100%; }
 .camwrap { position: absolute; inset: 0; background: #000; overflow: hidden; }
+.camcell { position: relative; width: 100%; height: 100%; overflow: hidden; }
+.camlbl { position: absolute; left: 8px; bottom: 8px; font-size: 11px; font-weight: 600; color: #fff; background: rgba(0,0,0,.55); padding: 2px 7px; border-radius: 6px; pointer-events: none; }
 .cam { display: block; width: 100%; height: 100%; transform: rotate(var(--rot, 0deg)); transform-origin: center; }
 .cam.r90, .cam.r270 { transform: rotate(var(--rot)) scale(1.78); }
-.live { position: absolute; top: 12px; left: 12px; font-size: 10.5px; font-weight: 700; letter-spacing: .08em; background: rgba(255,92,108,.9); color: #fff; padding: 3px 7px; border-radius: 6px; pointer-events: none; }
+.live { position: absolute; z-index: 1; top: 12px; left: 12px; font-size: 10.5px; font-weight: 700; letter-spacing: .08em; background: rgba(255,92,108,.9); color: #fff; padding: 3px 7px; border-radius: 6px; pointer-events: none; }
 .tabs { display: flex; flex-direction: column; gap: 6px; padding: 8px; border-top: 1px solid var(--line); background: rgba(0,0,0,.18); }
 .trow { display: flex; gap: 6px; }
 .view.both { height: auto; display: flex; flex-direction: column; }
@@ -1656,6 +1686,10 @@ button:disabled { cursor: default; opacity: .38; }
 .view.both .camwrap { position: relative; inset: auto; width: 100%; aspect-ratio: var(--cam-ar, 16 / 9); border-top: 1px solid var(--line); }
 .view.camonly { height: auto; display: block; }
 .view.camonly .camwrap { position: relative; inset: auto; width: 100%; aspect-ratio: var(--cam-ar, 16 / 9); }
+/* All cameras at once: a 2-column grid, an odd last camera spans both. */
+.view .camwrap.grid { display: grid; grid-template-columns: 1fr 1fr; gap: 2px; aspect-ratio: auto; }
+.view .camwrap.grid .camcell { height: auto; aspect-ratio: var(--cam-ar, 16 / 9); }
+.view .camwrap.grid .camcell:last-of-type:nth-of-type(odd) { grid-column: span 2; }
 .tabs:empty { display: none; }
 .tabs button { flex: 1; min-width: 0; height: 32px; border-radius: 10px; font-size: 12px; font-weight: 600; color: var(--text2); display: flex; align-items: center; justify-content: center; gap: 6px; }
 .tabs button span { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
