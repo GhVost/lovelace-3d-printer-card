@@ -1,10 +1,20 @@
 # Lovelace 3D Printer Card for Home Assistant
 
-`lovelace-3d-printer-card` is a custom Lovelace card for monitoring and controlling **Moonraker/Klipper** 3D printers from Home Assistant. Single file, no dependencies, no build step.
+`lovelace-3d-printer-card` is a custom Lovelace card for monitoring and controlling **Moonraker/Klipper** and **OctoPrint** 3D printers from Home Assistant. Single file, no dependencies, no build step.
+
+> **This is a fork** of [gilbertorconde/lovelace-3d-printer-card](https://github.com/gilbertorconde/lovelace-3d-printer-card). It installs on its own (see [Installation](#installation)) and stays up to date with the original card. On top of it, the fork adds:
+>
+> - **OctoPrint support** — a built-in entity mapping, picked automatically when Home Assistant's OctoPrint integration is found (English and German HA). The optional [helper package](examples/octoprint_package.yaml) adds emergency stop, homing, jogging, speed/flow and fan control
+> - **Delta printers** — `printer_type: delta`, a side view in which the effector sweeps and the carriages follow it on constant-length rods
+> - **Camera split view** — a Printer / Both / Camera toggle; **Both** stacks the drawing above the camera
+> - **All cameras at once** — with two or more cameras, **All** shows them together in a grid
+> - All printer drawings restyled to match the delta
+>
+> These changes are also offered upstream in [pull request #10](https://github.com/gilbertorconde/lovelace-3d-printer-card/pull/10). Whatever happens to it, this fork stays installable.
 
 Version 3 is a dark, app-style redesign: everything you use during a print is on one page, and the old bottom sheets became folding sections.
 
-- **Live view** — an animated drawing of the printer (i3, CoreXY, CoreXY flying gantry or cantilever) with the part growing layer by layer, heaters glowing while they have a target and the toolhead moving while printing. Tabs switch to each camera (live `<ha-camera-stream>`, with rotation)
+- **Live view** — an animated drawing of the printer (i3, CoreXY, CoreXY flying gantry, cantilever or delta) with the part growing layer by layer, heaters glowing while they have a target and the toolhead moving while printing. A toggle switches between the drawing, the drawing and a camera stacked (**Both**), and the camera alone. With several cameras you pick one, or **All** to see them in a grid (live `<ha-camera-stream>`, with rotation)
 - **Progress** — file name with its thumbnail, percent, time left, finish time, elapsed time and layer
 - **Pause / Resume / Cancel** — Cancel needs a second tap. Emergency stop sits in the header and also needs two taps
 - **Temperatures** — a tile per heater with current and target. Tap a heater to set its target with + / − or presets (PLA / PETG / ABS by default)
@@ -21,6 +31,18 @@ Version 3 is a dark, app-style redesign: everything you use during a print is on
 ---
 
 ## Screenshots
+
+| OctoPrint delta printer, printing, camera split view (**Both**) |
+|:---:|
+| ![OctoPrint delta printer with camera split view](screenshots/v3-octoprint-delta.png) |
+
+| Delta animation while printing |
+|:---:|
+| ![Delta animation](screenshots/v3-delta.gif) |
+
+| Live view: Printer · Both · Camera with **All** cameras |
+|:---:|
+| ![View modes](screenshots/v3-view-modes.png) |
 
 | Printing (wide), hotend target open |
 |:---:|
@@ -42,25 +64,31 @@ Version 3 is a dark, app-style redesign: everything you use during a print is on
 |:---:|
 | ![Printer types](screenshots/v3-printer-types.png) |
 
-The screenshots use sample data.
+The screenshots use sample data; the camera pictures are placeholders.
 
 ---
 
 ## Installation
 
+These steps install **this fork**. The card type stays `custom:lovelace-3d-printer-card`, so existing dashboards keep working.
+
+> **Already using the original card?** Install only one of the two, or both register the same card. In HACS, open the original **Lovelace 3D Printer Card**, choose **Remove**, then follow Option A. For a manual install, replace the files in place (Option B). Your dashboard YAML needs no changes. To go back, remove the fork and add `https://github.com/gilbertorconde/lovelace-3d-printer-card` the same way.
+
 ### Option A — HACS (recommended)
 
-1. In Home Assistant, open **HACS → Frontend**.
+1. In Home Assistant, open **HACS**.
 2. Click the three-dot menu (⋮) in the top-right and choose **Custom repositories**.
-3. Paste `https://github.com/gilbertorconde/lovelace-3d-printer-card` and select **Dashboard** as the category.
-4. Click **Add**, then search for **Lovelace 3D Printer Card** and install it.
+3. Paste `https://github.com/GhVost/lovelace-3d-printer-card` and select **Dashboard** as the type.
+4. Click **Add**, then search for **Lovelace 3D Printer Card**, open the entry whose repository is `GhVost/lovelace-3d-printer-card`, and download it.
 5. Reload your browser / clear the cache.
 
-[![Add to HACS](https://my.home-assistant.io/badges/hacs_repository.svg)](https://my.home-assistant.io/redirect/hacs_repository/?owner=gilbertorconde&repository=lovelace-3d-printer-card&category=dashboard)
+HACS installs the fork's latest release and offers updates when a new one is published.
+
+[![Add to HACS](https://my.home-assistant.io/badges/hacs_repository.svg)](https://my.home-assistant.io/redirect/hacs_repository/?owner=GhVost&repository=lovelace-3d-printer-card&category=dashboard)
 
 ### Option B — Manual
 
-1. Download `lovelace-3d-printer-card.js` and the `entities/` folder from the [latest release](https://github.com/gilbertorconde/lovelace-3d-printer-card/releases/latest).
+1. Download `lovelace-3d-printer-card.js` and the `entities/` folder from the fork's [latest release](https://github.com/GhVost/lovelace-3d-printer-card/releases/latest).
 2. Copy the card to `/config/www/lovelace-3d-printer-card/lovelace-3d-printer-card.js` and the `entities/` folder to `/config/www/lovelace-3d-printer-card/entities/`.
 3. In **Settings → Dashboards → Resources**, add each file as a resource (type: **JavaScript Module**). Click **Add resource**, enter the URL, then add the next:
    - `/local/lovelace-3d-printer-card/lovelace-3d-printer-card.js` (the card)
@@ -297,7 +325,9 @@ With the plug off (or Moonraker unreachable) the card shows only the header, an 
 
 ## Cameras
 
-Cameras are fully auto-discovered from `camera.*<base>*` entities (the thumbnail camera is excluded) and appear as tabs in the live view. Only the selected camera streams, through HA's native `<ha-camera-stream>` element (MJPEG, HLS, WebRTC).
+Cameras are fully auto-discovered from `camera.*<base>*` entities (the thumbnail camera is excluded) and appear as tabs in the live view. Only the shown cameras stream, through HA's native `<ha-camera-stream>` element (MJPEG, HLS, WebRTC).
+
+The toggle under the live view switches between **Printer** (the drawing), **Both** (the drawing above the camera) and **Camera** (the camera alone); `view:` sets the starting mode. With two or more cameras, a second row picks the camera, and **All** shows every camera at once in a two-column grid, each tile labelled and keeping its own aspect ratio and rotation (an odd last camera spans the full width). Both choices are remembered per browser. **All** streams every camera, so it uses more bandwidth.
 
 The `cameras:` config array is only needed to specify rotation angles. Unspecified cameras default to `rotate: 0`.
 
@@ -353,6 +383,11 @@ Optional mapping keys (all used by the built-in OctoPrint mapping):
 ---
 
 ## Changelog
+
+**3.2.0-ghvost**
+- New: **All** in the camera picker shows every camera at once in a grid (two or more cameras); the picked camera is remembered per browser.
+- Includes upstream 3.1.0 (tap a reading for its history).
+- README: fork installation, new screenshots (OctoPrint delta with camera split view, delta animation, view modes).
 
 **3.1.0-ghvost**
 - New: OctoPrint support via a built-in mapping, auto-detected from the OctoPrint integration's entities (English and German HA).
