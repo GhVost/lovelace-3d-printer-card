@@ -1669,7 +1669,7 @@ button:disabled { cursor: default; opacity: .38; }
 
 /* live view */
 .hero { border-radius: var(--r-lg); background: radial-gradient(260px 200px at 50% 60%, rgba(255,122,69,.1), transparent 70%), var(--surface); border: 1px solid var(--line); overflow: hidden; }
-.view { position: relative; height: 250px; display: grid; place-items: center; }
+.view { position: relative; height: 250px; display: grid; place-items: center; container: live / inline-size; }
 @container (max-width: 480px) { .view { height: 220px; } }
 .draw { display: grid; place-items: center; width: 100%; height: 100%; }
 .draw svg { width: 250px; height: 230px; max-width: 100%; }
@@ -1686,10 +1686,14 @@ button:disabled { cursor: default; opacity: .38; }
 .view.both .camwrap { position: relative; inset: auto; width: 100%; aspect-ratio: var(--cam-ar, 16 / 9); border-top: 1px solid var(--line); }
 .view.camonly { height: auto; display: block; }
 .view.camonly .camwrap { position: relative; inset: auto; width: 100%; aspect-ratio: var(--cam-ar, 16 / 9); }
-/* All cameras at once: a 2-column grid, an odd last camera spans both. */
-.view .camwrap.grid { display: grid; grid-template-columns: 1fr 1fr; gap: 2px; aspect-ratio: auto; }
+/* All cameras at once: stacked in one column, two columns once the live view
+   is wide enough (an odd last camera then spans both). */
+.view .camwrap.grid { display: grid; grid-template-columns: minmax(0, 1fr); gap: 2px; aspect-ratio: auto; }
 .view .camwrap.grid .camcell { height: auto; aspect-ratio: var(--cam-ar, 16 / 9); }
-.view .camwrap.grid .camcell:last-of-type:nth-of-type(odd) { grid-column: span 2; }
+@container live (min-width: 440px) {
+  .view .camwrap.grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .view .camwrap.grid .camcell:last-of-type:nth-of-type(odd) { grid-column: span 2; }
+}
 .tabs:empty { display: none; }
 .tabs button { flex: 1; min-width: 0; height: 32px; border-radius: 10px; font-size: 12px; font-weight: 600; color: var(--text2); display: flex; align-items: center; justify-content: center; gap: 6px; }
 .tabs button span { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
