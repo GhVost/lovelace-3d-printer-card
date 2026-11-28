@@ -1,23 +1,36 @@
-# Lovelace 3D Printer Card for Home Assistant
+# Lovelace 3D Printer Card — GhVost fork
 
-`lovelace-3d-printer-card` is a custom Lovelace card for monitoring and controlling **Moonraker/Klipper** and **OctoPrint** 3D printers from Home Assistant. Single file, no dependencies, no build step.
+A custom Lovelace card for monitoring and controlling **Moonraker/Klipper** and **OctoPrint** 3D printers from Home Assistant. Single file, no dependencies, no build step.
 
-> **This is a fork** of [gilbertorconde/lovelace-3d-printer-card](https://github.com/gilbertorconde/lovelace-3d-printer-card). It installs on its own (see [Installation](#installation)) and stays up to date with the original card. On top of it, the fork adds:
->
-> - **OctoPrint support** — a built-in entity mapping, picked automatically when Home Assistant's OctoPrint integration is found (English and German HA). The optional [helper package](examples/octoprint_package.yaml) adds emergency stop, homing, jogging, speed/flow and fan control
-> - **Delta printers** — `printer_type: delta`, a side view in which the effector sweeps and the carriages follow it on constant-length rods
-> - **Camera split view** — a Printer / Both / Camera toggle; **Both** stacks the drawing above the camera
-> - **All cameras at once** — with two or more cameras, **All** shows them together, in one column or two depending on the available width
-> - All printer drawings restyled to match the delta
->
-> These changes are also offered upstream in [pull request #10](https://github.com/gilbertorconde/lovelace-3d-printer-card/pull/10). Whatever happens to it, this fork stays installable.
+This is a fork of [gilbertorconde/lovelace-3d-printer-card](https://github.com/gilbertorconde/lovelace-3d-printer-card) by [gil](https://github.com/gilbertorconde). It contains everything from the original card (currently up to 3.1.0) plus the additions below, and installs on its own from this repository's releases — see [Installation](#installation). The card type is the same, `custom:lovelace-3d-printer-card`, so switching between the original and the fork needs no dashboard changes.
 
-Version 3 is a dark, app-style redesign: everything you use during a print is on one page, and the old bottom sheets became folding sections.
+---
 
-- **Live view** — an animated drawing of the printer (i3, CoreXY, CoreXY flying gantry, cantilever or delta) with the part growing layer by layer, heaters glowing while they have a target and the toolhead moving while printing. A toggle switches between the drawing, the drawing and a camera stacked (**Both**), and the camera alone. With several cameras you pick one, or **All** to see them together, stacked or in two columns depending on width (live `<ha-camera-stream>`, with rotation)
+## What this fork adds
+
+| Feature | Details |
+|---|---|
+| **OctoPrint support** | A built-in entity mapping, picked automatically when Home Assistant's OctoPrint integration is found (English and German HA). An optional [helper package](examples/octoprint_package.yaml) adds emergency stop, homing, jogging, speed/flow and fan control. See [OctoPrint](#octoprint) |
+| **Delta printers** | `printer_type: delta` — a side view in which the effector sweeps and the carriages follow it on constant-length rods |
+| **Camera split view** | A Printer / Both / Camera toggle under the live view; **Both** stacks the drawing above the camera. `view:` sets the starting mode |
+| **All cameras at once** | With two or more cameras, **All** shows them together: one column on narrow views, two columns from 440 px |
+| **Light theme** | `theme: light`, or `theme: auto` to follow Home Assistant's dark mode. See [Themes](#themes) |
+| **Restyled drawings** | All printer drawings match the delta's style |
+| **New mapping keys** | `ignore`, `hide_unavailable`, `status_map`, `label_strip` for writing mappings of other integrations |
+
+OctoPrint, delta and the split view are offered upstream in [pull request #10](https://github.com/gilbertorconde/lovelace-3d-printer-card/pull/10). **All cameras** and the **light theme** are only in this fork. Whatever happens to the pull request, the fork stays installable and keeps following upstream.
+
+---
+
+## Features
+
+Version 3 is an app-style design, dark by default with a light theme: everything you use during a print is on one page, and the less frequent controls are folding sections.
+
+- **Live view** — an animated drawing of the printer (i3, CoreXY, CoreXY flying gantry, cantilever or delta) with the part growing layer by layer, heaters glowing while they have a target and the toolhead moving while printing. The toggle switches between the drawing, drawing plus camera (**Both**) and the camera alone. With several cameras you pick one, or **All** (live `<ha-camera-stream>`, with rotation)
 - **Progress** — file name with its thumbnail, percent, time left, finish time, elapsed time and layer
 - **Pause / Resume / Cancel** — Cancel needs a second tap. Emergency stop sits in the header and also needs two taps
 - **Temperatures** — a tile per heater with current and target. Tap a heater to set its target with + / − or presets (PLA / PETG / ABS by default)
+- **History** — tap any reading (temperature, progress, times, speed, fans, position, totals) for Home Assistant's more-info dialog with its graph
 - **Tune** — speed and flow sliders, and 10-step drag bars for fans, filters and lights
 - **Move** — X/Y/Z position, homing, step sizes and a jog pad (disabled while printing)
 - **Macros** and **System** (Klipper, service and host restarts) as folding sections
@@ -26,7 +39,6 @@ Version 3 is a dark, app-style redesign: everything you use during a print is on
 - **`variant: compact`** — a small glance card with progress and temperatures. "Full controls" opens the full card in a dialog
 - **Auto-discovery** — all entities are found from the `base_entity` prefix
 - Two columns when the card is wide, one column on a phone. The header never squashes its buttons
-- **Device author:** [gil](https://github.com/gilbertorconde) — 2026
 
 ---
 
@@ -43,6 +55,10 @@ Version 3 is a dark, app-style redesign: everything you use during a print is on
 | Live view: Printer · Both · Camera with **All** cameras, stacked on a narrow view and in two columns on a wide one |
 |:---:|
 | ![View modes](screenshots/v3-view-modes.png) |
+
+| Light theme (`theme: light`) |
+|:---:|
+| ![Light theme](screenshots/v3-light.png) |
 
 | Printing (wide), hotend target open |
 |:---:|
@@ -70,11 +86,13 @@ The screenshots use sample data; the camera pictures are placeholders.
 
 ## Installation
 
-These steps install **this fork**. The card type stays `custom:lovelace-3d-printer-card`, so existing dashboards keep working.
-
 > **Already using the original card?** Install only one of the two, or both register the same card. In HACS, open the original **Lovelace 3D Printer Card**, choose **Remove**, then follow Option A. For a manual install, replace the files in place (Option B). Your dashboard YAML needs no changes. To go back, remove the fork and add `https://github.com/gilbertorconde/lovelace-3d-printer-card` the same way.
 
 ### Option A — HACS (recommended)
+
+[![Add to HACS](https://my.home-assistant.io/badges/hacs_repository.svg)](https://my.home-assistant.io/redirect/hacs_repository/?owner=GhVost&repository=lovelace-3d-printer-card&category=dashboard)
+
+Or by hand:
 
 1. In Home Assistant, open **HACS**.
 2. Click the three-dot menu (⋮) in the top-right and choose **Custom repositories**.
@@ -82,9 +100,7 @@ These steps install **this fork**. The card type stays `custom:lovelace-3d-print
 4. Click **Add**, then search for **Lovelace 3D Printer Card**, open the entry whose repository is `GhVost/lovelace-3d-printer-card`, and download it.
 5. Reload your browser / clear the cache.
 
-HACS installs the fork's latest release and offers updates when a new one is published.
-
-[![Add to HACS](https://my.home-assistant.io/badges/hacs_repository.svg)](https://my.home-assistant.io/redirect/hacs_repository/?owner=GhVost&repository=lovelace-3d-printer-card&category=dashboard)
+HACS installs the fork's latest release and offers updates when a new one is published. Fork versions end in `-ghvost` (e.g. `3.2.0-ghvost`).
 
 ### Option B — Manual
 
@@ -95,9 +111,11 @@ HACS installs the fork's latest release and offers updates when a new one is pub
    - `/local/lovelace-3d-printer-card/entities/en_generic.js`
    - `/local/lovelace-3d-printer-card/entities/de_generic.js`
    - `/local/lovelace-3d-printer-card/entities/de_bambu_generic.js`
-   Add each entity mapping file you use; see the `entities/` folder for available options.
+   Add each entity mapping file you use; see the `entities/` folder for available options. The OctoPrint mapping is built into the card and needs no file.
 
-### Add the card to your dashboard
+---
+
+## Add the card to your dashboard
 
 **Minimal config** — the card discovers all entities automatically:
 
@@ -108,13 +126,14 @@ base_entity: voron_24
 printer_type: i3
 ```
 
-**With camera rotation:**
+**With camera rotation and a starting view:**
 
 ```yaml
 type: custom:lovelace-3d-printer-card
 name: Voron 2.4
 base_entity: voron_24
 printer_type: i3
+view: both
 cameras:
   - entity: camera.voron_24_back
     rotate: 180
@@ -141,38 +160,6 @@ entity_mappings: de_bambu_generic
 ```
 
 **Check the `entities/` folder** in the repo to see which mapping files are available (e.g. `en_generic.js`, `de_generic.js`, `de_bambu_generic.js`). Use the filename without `.js` as the value.
-
-**OctoPrint** (Home Assistant's built-in OctoPrint integration) — the mapping is built into the card and picked automatically when `sensor.<base_entity>_current_state` and `sensor.<base_entity>_actual_tool0_temp` exist, so `entity_mappings` can be left out (or set it to `octoprint`). It works with English and German HA. Hotend/bed targets are settable via the integration's number entities; pause/resume/cancel and the OctoPrint restart/reboot/shutdown buttons are mapped. The integration itself has no G-code service, fans, speed factor or emergency stop, so on its own Move, Tune and the emergency-stop button don't appear.
-
-To get them, add the helper package [`examples/octoprint_package.yaml`](examples/octoprint_package.yaml). It lets Home Assistant send G-code through OctoPrint's REST API (server-side, so no CORS or HTTPS setup is needed) and creates entities the card picks up automatically:
-
-| Entity | Card control | G-code |
-|---|---|---|
-| `button.octoprint_emergency_stop` | red emergency-stop button | `M112` |
-| `button.octoprint_home_all_axes`, `…_home_x_axis`, `…_home_y_axis`, `…_home_z_axis` | Move → Home | `G28` |
-| `script.octoprint_jog` | Move → jog arrows | `G91` / `G0` / `G90` |
-| `number.octoprint_speed_factor`, `number.octoprint_flow_factor` | Tune → Speed, Flow | `M220`, `M221` |
-| `number.octoprint_fan_speed` | Tune → fan bars | `M106` |
-
-Setup:
-
-1. Enable packages in `configuration.yaml` (once):
-   ```yaml
-   homeassistant:
-     packages: !include_dir_named packages
-   ```
-2. Copy the example to `/config/packages/`, replace `OCTOPRINT_HOST` with your OctoPrint address.
-3. Add your OctoPrint API key (OctoPrint → Settings → Application Keys) to `secrets.yaml` as `octoprint_api_key`.
-4. Check the configuration and restart Home Assistant.
-
-OctoPrint doesn't report speed, flow or fan values, so those show the last value set from Home Assistant. The toolhead position isn't available, so Move shows no X/Y/Z readout. Entity IDs follow the names in the file; if your `base_entity` isn't `octoprint`, rename them to match.
-
-```yaml
-type: custom:lovelace-3d-printer-card
-name: Prusa
-base_entity: octoprint
-printer_type: i3
-```
 
 **Compact glance card** (e.g. inside a room view), opening the full card in a dialog:
 
@@ -205,6 +192,45 @@ power_switch: switch.printer_smart_plug
 
 ---
 
+## OctoPrint
+
+For Home Assistant's built-in OctoPrint integration. The mapping is built into the card and picked automatically when `sensor.<base_entity>_current_state` and `sensor.<base_entity>_actual_tool0_temp` exist, so `entity_mappings` can be left out (or set it to `octoprint`). It works with English and German HA.
+
+```yaml
+type: custom:lovelace-3d-printer-card
+name: Delta
+base_entity: octoprint
+printer_type: delta
+view: both
+```
+
+Out of the box, hotend/bed targets are settable via the integration's number entities, and pause/resume/cancel and the OctoPrint restart/reboot/shutdown buttons are mapped. The integration itself has no G-code service, fans, speed factor or emergency stop, so on its own Move, Tune and the emergency-stop button don't appear.
+
+To get them, add the helper package [`examples/octoprint_package.yaml`](examples/octoprint_package.yaml). It lets Home Assistant send G-code through OctoPrint's REST API (server-side, so no CORS or HTTPS setup is needed) and creates entities the card picks up automatically:
+
+| Entity | Card control | G-code |
+|---|---|---|
+| `button.octoprint_emergency_stop` | red emergency-stop button | `M112` |
+| `button.octoprint_home_all_axes`, `…_home_x_axis`, `…_home_y_axis`, `…_home_z_axis` | Move → Home | `G28` |
+| `script.octoprint_jog` | Move → jog arrows | `G91` / `G0` / `G90` |
+| `number.octoprint_speed_factor`, `number.octoprint_flow_factor` | Tune → Speed, Flow | `M220`, `M221` |
+| `number.octoprint_fan_speed` | Tune → fan bars | `M106` |
+
+Setup:
+
+1. Enable packages in `configuration.yaml` (once):
+   ```yaml
+   homeassistant:
+     packages: !include_dir_named packages
+   ```
+2. Copy the example to `/config/packages/`, replace `OCTOPRINT_HOST` with your OctoPrint address.
+3. Add your OctoPrint API key (OctoPrint → Settings → Application Keys) to `secrets.yaml` as `octoprint_api_key`.
+4. Check the configuration and restart Home Assistant.
+
+OctoPrint doesn't report speed, flow or fan values, so those show the last value set from Home Assistant. The toolhead position isn't available, so Move shows no X/Y/Z readout. Entity IDs follow the names in the file; if your `base_entity` isn't `octoprint`, rename them to match.
+
+---
+
 ## Config Reference
 
 | Key | Type | Required | Description |
@@ -217,7 +243,59 @@ power_switch: switch.printer_smart_plug
 | `power_switch` | string | No | Switch entity ID for the printer's smart plug — adds a power button to the header |
 | `view` | string | No | Starting live view: `printer` (default), `both` (drawing above the camera) or `camera`. The toggle under the view switches it, and the choice is remembered per browser |
 | `variant` | string | No | `full` (default) or `compact`: a glance card whose "Full controls" opens the full card in a dialog |
+| `theme` | string | No | `dark` (default), `light`, or `auto` (light or dark following Home Assistant's dark mode) |
 | `presets` | map | No | Target presets per heater, keyed by `hotend`, `bed`, a heater's sensor or target entity ID, or its label. Each item is `{ name, value }` or a number. Defaults: hotend PLA 215 / PETG 245 / ABS 260, bed PLA 60 / PETG 80 / ABS 100 |
+
+---
+
+## Themes
+
+The card is dark by default. `theme: light` switches it to light surfaces with darker accent colours, so status, heater and fan colours keep their contrast; the printer drawing is restyled to match. `theme: auto` follows Home Assistant: light when your profile or theme is in light mode, dark otherwise. The camera picture and its labels stay dark in both themes.
+
+```yaml
+type: custom:lovelace-3d-printer-card
+name: Voron 2.4
+base_entity: voron_24
+theme: auto
+```
+
+---
+
+## Cameras
+
+Cameras are fully auto-discovered from `camera.*<base>*` entities (the thumbnail camera is excluded). Only the shown cameras stream, through HA's native `<ha-camera-stream>` element (MJPEG, HLS, WebRTC).
+
+The toggle under the live view switches between **Printer** (the drawing), **Both** (the drawing above the camera) and **Camera** (the camera alone); `view:` sets the starting mode. With two or more cameras, a second row picks the camera, and **All** shows every camera at once, each tile labelled and keeping its own aspect ratio and rotation. The layout follows the live view's width: below 440 px (phones, and the left column of a wide card) the cameras are stacked in one column; from 440 px they sit in two columns, and an odd last camera spans both. Both choices are remembered per browser. **All** streams every camera, so it uses more bandwidth.
+
+The `cameras:` config array is only needed for rotation or a non-16:9 aspect ratio. Unspecified cameras default to `rotate: 0`.
+
+```yaml
+cameras:
+  - entity: camera.printer_back
+    rotate: 180    # flip upside down
+  - entity: camera.printer_top
+    rotate: 90     # rotate 90° clockwise
+    aspect: "4:3"
+```
+
+| Value | Result |
+|---|---|
+| `0` | No rotation (default) |
+| `90` | Rotate 90° clockwise |
+| `180` | Flip upside down |
+| `270` | Rotate 90° counter-clockwise |
+
+---
+
+## Printer Types
+
+| Value | Description |
+|---|---|
+| `i3` | Prusa i3 / Cartesian — two Z rods, X gantry, moving bed |
+| `corexy` | CoreXY — gantry fixed at top, bed moves down with object |
+| `corexy-flying-gantry` | CoreXY Voron 2.4 — flying gantry moves up with object, fixed bed |
+| `cantilever` | Cantilever (Ender-style) — single upright, cantilevered X arm |
+| `delta` | Delta (Kossel/Rostock) — side view: three towers (back one faint), carriages and arm pairs follow the effector |
 
 ---
 
@@ -246,6 +324,8 @@ Any entity with `attributes.hidden === true` is skipped entirely. This filters o
 | Hotend temp | `extruder_temperature`, `extruder_temp` |
 | Bed temp | `bed_temperature`, `bed_temp` |
 | Position X/Y/Z | `toolhead_position_x/y/z` |
+
+These are the Moonraker suffixes from `en_generic`; other mappings (including the built-in OctoPrint one) use their own.
 
 When multiple entities match the same role (e.g. an alias sensor), the one with a valid (non-unknown/unavailable) state wins. For ETA, `print_time_left` is preferred over `print_eta` (time remaining vs. finish timestamp).
 
@@ -280,7 +360,7 @@ The card converts Moonraker units automatically: `print_duration` (min) and `pri
 - **Temperature sensors** — `sensor.*` with unit `°C`/`°F`, not matched to a well-known role → paired with a `number.*_target` entity → a settable heater tile. Sensors with no matching target are read-only tiles.
 - **Fans/outputs** — `number.*` matching `fan|filter|exhaust|output_pin|light|led`, not already claimed → drag bars in Tune
 - **Thumbnail** — `camera.*_thumbnail` → the progress block's thumbnail (shown when state is `printing` or `paused`, only after the URL returns a valid image; falls back to file icon if the feed is empty or fails)
-- **Live cameras** — all other `camera.*` entities → live-view tabs
+- **Live cameras** — all other `camera.*` entities → live view
 
 ### Labels
 
@@ -294,7 +374,7 @@ From top to bottom (the second column starts at Temperatures when the card is at
 
 - **Header** — name, state and layer, state pill (hidden on narrow cards), emergency stop, power, and a close button in the compact variant's dialog
 - **Message banner** — `current_print_message` / `current_display_message`, hidden when empty
-- **Live view** — printer drawing and camera tabs
+- **Live view** — printer drawing and/or cameras, with the view toggle and camera picker
 - **Progress** — shown while printing or paused, and after a print completes or is cancelled
 - **Pause / Resume / Cancel**
 - **Temperatures** — hotend, bed, then other heaters (settable first), then read-only sensors
@@ -305,75 +385,33 @@ From top to bottom (the second column starts at Temperatures when the card is at
 
 Readings that come from an entity (temperatures, progress, times, layer, filament, speed/flow/fan values, position, totals) open Home Assistant's more-info dialog with the entity's history when tapped. Controls keep their own action.
 
-Jog moves are sent via `moonraker.send_gcode` or `klipper.send_gcode` (G91 relative move, then G90). Falls back to `script.<base>_jog` with `{ axis, distance }` variables.
+Jog moves are sent via `moonraker.send_gcode` or `klipper.send_gcode` (G91 relative move, then G90). Falls back to `script.<base>_jog` with `{ axis, distance }` variables (this is what the OctoPrint package provides).
 
-With the plug off (or Moonraker unreachable) the card shows only the header, an off/offline block with **Turn on** and, when the sensors are available, totals from `sensor.<base>_totals_jobs`, `_totals_print_time` and `_totals_filament_used`, plus the cameras.
-
----
-
-## Printer Types
-
-| Value | Description |
-|---|---|
-| `i3` | Prusa i3 / Cartesian — two Z rods, X gantry, moving bed |
-| `corexy` | CoreXY — gantry fixed at top, bed moves down with object |
-| `corexy-flying-gantry` | CoreXY Voron 2.4 — flying gantry moves up with object, fixed bed |
-| `cantilever` | Cantilever (Ender-style) — single upright, cantilevered X arm |
-| `delta` | Delta (Kossel/Rostock) — side view: three towers (back one faint), carriages and arm pairs follow the effector |
+With the plug off (or the printer unreachable) the card shows only the header, an off/offline block with **Turn on** and, when the sensors are available, totals from `sensor.<base>_totals_jobs`, `_totals_print_time` and `_totals_filament_used`, plus the cameras.
 
 ---
 
-## Cameras
+## Contributing
 
-Cameras are fully auto-discovered from `camera.*<base>*` entities (the thumbnail camera is excluded) and appear as tabs in the live view. Only the shown cameras stream, through HA's native `<ha-camera-stream>` element (MJPEG, HLS, WebRTC).
+Bugs and requests for the fork's features (OctoPrint, delta, split view, All cameras) go to this repository's [issues](https://github.com/GhVost/lovelace-3d-printer-card/issues). For everything else, the [original repository](https://github.com/gilbertorconde/lovelace-3d-printer-card) is the better place, so the fix reaches all users; the fork picks it up from there.
 
-The toggle under the live view switches between **Printer** (the drawing), **Both** (the drawing above the camera) and **Camera** (the camera alone); `view:` sets the starting mode. With two or more cameras, a second row picks the camera, and **All** shows every camera at once, each tile labelled and keeping its own aspect ratio and rotation. The layout follows the live view's width: below 440 px (phones, and the left column of a wide card) the cameras are stacked in one column; from 440 px they sit in two columns, and an odd last camera spans both. Both choices are remembered per browser. **All** streams every camera, so it uses more bandwidth.
+### Entity mappings
 
-The `cameras:` config array is only needed to specify rotation angles. Unspecified cameras default to `rotate: 0`.
-
-```yaml
-cameras:
-  - entity: camera.printer_back
-    rotate: 180    # flip upside down
-  - entity: camera.printer_top
-    rotate: 90     # rotate 90° clockwise
-```
-
-| Value | Result |
-|---|---|
-| `0` | No rotation (default) |
-| `90` | Rotate 90° clockwise |
-| `180` | Flip upside down |
-| `270` | Rotate 90° counter-clockwise |
-
----
-
-## Contributing — Entity Mappings
-
-The card relies on entity mapping files to discover printer entities and translate UI strings. If your printer or language is not supported, the card may show no data. **We welcome contributions.**
-
-### Available options
-
-**Always check the `entities/` folder** in the repo to see which mapping files are available. Currently included:
+The card relies on entity mapping files to discover printer entities and translate UI strings. If your printer or language is not supported, the card may show no data. Currently included:
 
 - `en_generic.js` — Moonraker/Klipper, English (default)
 - `de_generic.js` — Moonraker/Klipper, German (includes `verbleibende_zeit` for ETA)
 - `de_bambu_generic.js` — BambuLab (ha-bambulab), German — use when HA is set to German and the BambuLab integration uses translated entity names (e.g. `druckfortschritt`, `verbleibende_zeit`, `druckbetttemperatur`)
+- `octoprint` — built into the card (OctoPrint integration, English and German HA)
 
-### How to contribute
+To add one:
 
-1. Add a new JS module in `entities/` following the naming `{language}_{printer}.js`. Examples of files you could add:
-   - `en_bambu_p2p.js` — Bambu P2P/P2S, English
-   - `de_bambu_p2p.js` — Bambu P2P/P2S, German
-   - `de_voron_24.js` — Voron 2.4, German
-
+1. Add a new JS module in `entities/` following the naming `{language}_{printer}.js`, e.g. `en_bambu_p2p.js`, `de_bambu_p2p.js`, `de_voron_24.js`.
 2. Copy `en_generic.js` as a starting point (use `export default { ... }`), then add or adjust the suffixes for your integration's entity IDs (e.g. BambuLab uses `verbleibende_zeit` for ETA in German).
-
 3. Add UI translations in the `ui` object for buttons, labels, and section headers (e.g. "Pause", "Macros", "Temperatures"). Entity-derived labels use HA `friendly_name` and need no translation.
-
 4. Submit a PR with the new file and a short note in the PR description.
 
-Optional mapping keys (all used by the built-in OctoPrint mapping):
+Optional mapping keys (added by this fork, all used by the built-in OctoPrint mapping):
 
 - `ignore` — regexes tested against the entity suffix; matching entities are skipped (e.g. `['^target_']`).
 - `hide_unavailable` — `true` drops extra temperature sensors that are unavailable or unknown.
@@ -383,6 +421,12 @@ Optional mapping keys (all used by the built-in OctoPrint mapping):
 ---
 
 ## Changelog
+
+Fork releases end in `-ghvost`; the others are upstream releases, included in the fork.
+
+**3.3.0-ghvost**
+- New: light theme. `theme: light`, or `theme: auto` to follow Home Assistant's dark mode; the default stays dark.
+- README rewritten for the fork.
 
 **3.2.0-ghvost**
 - New: **All** in the camera picker shows every camera at once (two or more cameras), in one or two columns depending on the available width; the picked camera is remembered per browser.
@@ -420,5 +464,12 @@ Optional mapping keys (all used by the built-in OctoPrint mapping):
 ## Requirements
 
 - Home Assistant 2023.4 or newer (a browser with CSS container queries)
-- Moonraker integration installed and printer entities exposed to HA (or the OctoPrint integration, see above)
+- The Moonraker integration, or Home Assistant's OctoPrint integration, with the printer's entities in HA
 - No additional HACS frontend cards required
+
+---
+
+## Credits
+
+- Original card: [gil](https://github.com/gilbertorconde) — [gilbertorconde/lovelace-3d-printer-card](https://github.com/gilbertorconde/lovelace-3d-printer-card)
+- Fork (OctoPrint, delta, camera split view, All cameras, light theme): [GhVost](https://github.com/GhVost)
